@@ -1,13 +1,13 @@
 Required dependencies
 `````````````````````
 
-The delayderiv requires the following to be installed:
+The derivdelay requires the following to be installed:
 
 -  Python >= 3.9
 -  numpy
 
 
-Installing the delayderiv package
+Installing the derivdelay package
 ````````````````````````````````
 
 Once you have installed the prerequisites, cd into the package
@@ -24,7 +24,7 @@ them from the command line then (after rehashing).
 Updating
 ````````
 
-If you’ve previously installed rapidtide and want to update, cd into the
+If you’ve previously installed derivdelay and want to update, cd into the
 package directory and do a git pull first:
 
 ::

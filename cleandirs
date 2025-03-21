@@ -4,7 +4,7 @@
 rm -rf \
     build \
     dist \
-    rapidtide.egg-info \
+    derivdelay.egg-info \
     __pycache__ */__pycache__ */*/__pycache__ \
     *.pyc */*.pyc */*/*.pyc */*/*/*.pyc */*/*/*/*.pyc
 
@@ -12,7 +12,7 @@ pipresult="True"
 
 while [ -n "$pipresult" ]
 do
-    pipresult=`pip uninstall -y rapidtide | grep "Found existing"`
+    pipresult=`pip uninstall -y derivdelay | grep "Found existing"`
     if [[ -z $pipresult ]]
     then
         echo No installations found - quitting.

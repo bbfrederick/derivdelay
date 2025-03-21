@@ -1,16 +1,16 @@
-The delayderiv package
+The derivdelay package
 =====================
 
-delayderiv implements a method for calculating the time delay of a signal
+derivdelay implements a method for calculating the time delay of a signal
 relative to a reference using the coefficients of a linear fit of the reference
 and its time derivatives.  This works over a limited time range, but if quite
 fast and robust for finding time delays.
 
-Full documentation is at: http://delayderiv.readthedocs.io/en/latest/
+Full documentation is at: http://derivdelay.readthedocs.io/en/latest/
 
 |PyPi Latest Version| |PyPi - Python Versions| |License| |Documentation Status| |CircleCI| |Coverage| |DOI| |Funded by NIH|
 
-The delayderiv program
+The derivdelay program
 ---------------------
 
 Rapidtide is also the name of the first program in the package, which is
@@ -39,7 +39,7 @@ new features and bug fixes!
 Ok, I\'m sold. What\'s in here?
 ===============================
 
--  **delayderiv** - Words go here
+-  **derivdelay** - Words go here
 
 
 Financial Support
@@ -49,18 +49,18 @@ This code base is being developed and supported by grants from the US
 NIH (`1R01 NS097512 <http://grantome.com/grant/NIH/R01-NS097512-02>`__, RF1 MH130637-01)
 
 
-.. |PyPi Latest Version| image:: https://img.shields.io/pypi/v/delayderiv.svg
-   :target: https://pypi.python.org/pypi/delayderiv/
-.. |PyPi - Python Versions| image:: https://img.shields.io/pypi/pyversions/delayderiv.svg
-   :target: https://pypi.python.org/pypi/delayderiv/
+.. |PyPi Latest Version| image:: https://img.shields.io/pypi/v/derivdelay.svg
+   :target: https://pypi.python.org/pypi/derivdelay/
+.. |PyPi - Python Versions| image:: https://img.shields.io/pypi/pyversions/derivdelay.svg
+   :target: https://pypi.python.org/pypi/derivdelay/
 .. |License| image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :target: https://opensource.org/licenses/Apache-2.0
-.. |Documentation Status| image:: https://readthedocs.org/projects/delayderiv/badge/?version=stable
-   :target: http://delayderiv.readthedocs.io/en/stable/?badge=stable
-.. |CircleCI| image:: https://circleci.com/gh/bbfrederick/delayderiv.svg?branch=main&style=shield
-   :target: https://circleci.com/gh/bbfrederick/delayderiv
-.. |Coverage| image:: https://codecov.io/gh/bbfrederick/delayderiv/branch/main/graph/badge.svg
-   :target: https://codecov.io/gh/bbfrederick/delayderiv
+.. |Documentation Status| image:: https://readthedocs.org/projects/derivdelay/badge/?version=stable
+   :target: http://derivdelay.readthedocs.io/en/stable/?badge=stable
+.. |CircleCI| image:: https://circleci.com/gh/bbfrederick/derivdelay.svg?branch=main&style=shield
+   :target: https://circleci.com/gh/bbfrederick/derivdelay
+.. |Coverage| image:: https://codecov.io/gh/bbfrederick/derivdelay/branch/main/graph/badge.svg
+   :target: https://codecov.io/gh/bbfrederick/derivdelay
 .. |DOI| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.814990.svg
    :target: https://doi.org/10.5281/zenodo.814990
 .. |Funded by NIH| image:: https://img.shields.io/badge/NIH-RF1--MH130637--01-yellowgreen.svg
