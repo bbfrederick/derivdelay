@@ -20,17 +20,17 @@ import argparse
 
 import numpy as np
 
-import rapidtide.io as tide_io
-import rapidtide.stats as tide_stats
-import rapidtide.workflows.parser_funcs as pf
+import derivdleay.io as dd_io
+import derivdleay.stats as dd_stats
+import derivdleay.workflows.parser_funcs as pf
 
 
 def _get_parser():
     """
-    Argument parser for histtc
+    Argument parser for demo
     """
     parser = argparse.ArgumentParser(
-        prog="histtc",
+        prog="demo",
         description=("Generate a histogram of the values in a timecourse"),
         allow_abbrev=False,
     )
@@ -108,7 +108,7 @@ def _get_parser():
     return parser
 
 
-def histtc(args):
+def demo(args):
     # set default variable values
     thepercentiles = [0.2, 0.25, 0.5, 0.75, 0.98]
     thepvalnames = []
@@ -119,7 +119,7 @@ def histtc(args):
     if args.debug:
         print(args)
 
-    dummy, dummy, colnames, inputdata, compressed, filetype = tide_io.readvectorsfromtextfile(
+    dummy, dummy, colnames, inputdata, compressed, filetype = dd_io.readvectorsfromtextfile(
         args.inputfilename
     )
 
@@ -134,12 +134,12 @@ def histtc(args):
     if args.debug:
         print(inputdata)
 
-    pcts_data[:] = tide_stats.getfracvals(inputdata, thepercentiles)
+    pcts_data[:] = dd_stats.getfracvals(inputdata, thepercentiles)
     for idx, thispercentile in enumerate(thepercentiles):
         print(f"percentile {thispercentile} is {pcts_data[idx]}")
 
     if args.robustrange:
-        histmin, histmax = tide_stats.getfracvals(inputdata, [0.02, 0.98])
+        histmin, histmax = dd_stats.getfracvals(inputdata, [0.02, 0.98])
     else:
         if args.minval is None:
             histmin = np.min(inputdata)
@@ -152,7 +152,7 @@ def histtc(args):
     therange = (histmin, histmax)
     print("the range is ", therange, flush=True)
 
-    tide_stats.makeandsavehistogram(
+    dd_stats.makeandsavehistogram(
         inputdata,
         args.histlen,
         0,

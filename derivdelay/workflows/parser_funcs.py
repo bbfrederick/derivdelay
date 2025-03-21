@@ -24,9 +24,9 @@ import os.path as op
 import sys
 from argparse import Namespace
 
-import rapidtide.filter as tide_filt
-import rapidtide.io as tide_io
-import rapidtide.util as tide_util
+import derivdelay.filter as dd_filt
+import derivdelay.io as dd_io
+import derivdelay.util as dd_util
 
 
 class IndicateSpecifiedAction(argparse.Action):
@@ -41,7 +41,7 @@ def detailedversion():
         git_sha,
         git_date,
         git_isdirty,
-    ) = tide_util.version()
+    ) = dd_util.version()
     python_version = str(sys.version_info)
     print(f"release version: {release_version}")
     print(f"git_sha: {git_sha}")
@@ -62,7 +62,7 @@ def is_valid_file(parser, arg):
     Check if argument is existing file.
     """
     if arg is not None:
-        thefilename, colspec = tide_io.parsefilespec(arg)
+        thefilename, colspec = dd_io.parsefilespec(arg)
     else:
         thefilename = None
 
@@ -105,7 +105,7 @@ def is_valid_file_or_float(parser, arg):
     Check if argument is existing file.
     """
     if arg is not None:
-        thefilename, colspec = tide_io.parsefilespec(arg)
+        thefilename, colspec = dd_io.parsefilespec(arg)
     else:
         thefilename = None
 
@@ -294,13 +294,13 @@ def addversionopts(parser):
         "--version",
         action="version",
         help="Show simplified version information and exit",
-        version=f"%(prog)s {tide_util.version()[0]}",
+        version=f"%(prog)s {dd_util.version()[0]}",
     )
     version_opts.add_argument(
         "--detailedversion",
         action="version",
         help="Show detailed version information and exit",
-        version=f"%(prog)s {tide_util.version()}",
+        version=f"%(prog)s {dd_util.version()}",
     )
 
 
@@ -358,16 +358,16 @@ def addfilteropts(
         help=(
             f'Filter {filtertarget} to specific band. Use "None" to disable filtering.  '
             f'Default is "{defaultmethod}".  Ranges are: '
-            f'vlf: {tide_filt.getfilterbandfreqs("vlf", asrange=True)}, '
-            f'lfo: {tide_filt.getfilterbandfreqs("lfo", asrange=True)}, '
-            f'cardiac: {tide_filt.getfilterbandfreqs("cardiac", asrange=True)}, '
-            f'hrv_ulf: {tide_filt.getfilterbandfreqs("hrv_ulf", asrange=True)}, '
-            f'hrv_vlf: {tide_filt.getfilterbandfreqs("hrv_vlf", asrange=True)}, '
-            f'hrv_lf: {tide_filt.getfilterbandfreqs("hrv_lf", asrange=True)}, '
-            f'hrv_hf: {tide_filt.getfilterbandfreqs("hrv_hf", asrange=True)}, '
-            f'hrv_vhf: {tide_filt.getfilterbandfreqs("hrv_vhf", asrange=True)}, '
-            f'lfo_legacy: {tide_filt.getfilterbandfreqs("lfo_legacy", asrange=True)}, '
-            f'lfo_tight: {tide_filt.getfilterbandfreqs("lfo_tight", asrange=True)}'
+            f'vlf: {dd_filt.getfilterbandfreqs("vlf", asrange=True)}, '
+            f'lfo: {dd_filt.getfilterbandfreqs("lfo", asrange=True)}, '
+            f'cardiac: {dd_filt.getfilterbandfreqs("cardiac", asrange=True)}, '
+            f'hrv_ulf: {dd_filt.getfilterbandfreqs("hrv_ulf", asrange=True)}, '
+            f'hrv_vlf: {dd_filt.getfilterbandfreqs("hrv_vlf", asrange=True)}, '
+            f'hrv_lf: {dd_filt.getfilterbandfreqs("hrv_lf", asrange=True)}, '
+            f'hrv_hf: {dd_filt.getfilterbandfreqs("hrv_hf", asrange=True)}, '
+            f'hrv_vhf: {dd_filt.getfilterbandfreqs("hrv_vhf", asrange=True)}, '
+            f'lfo_legacy: {dd_filt.getfilterbandfreqs("lfo_legacy", asrange=True)}, '
+            f'lfo_tight: {dd_filt.getfilterbandfreqs("lfo_tight", asrange=True)}'
         ),
         default=defaultmethod,
     )
@@ -509,7 +509,7 @@ def postprocessfilteropts(args, debug=False):
     if args.arbvec is not None:
         # NOTE - this vector is LOWERPASS, UPPERPASS, LOWERSTOP, UPPERSTOP
         # setfreqs expects LOWERSTOP, LOWERPASS, UPPERPASS, UPPERSTOP
-        theprefilter = tide_filt.NoncausalFilter(
+        theprefilter = dd_filt.NoncausalFilter(
             "arb",
             transferfunc=args.filtertype,
             padtime=args.padseconds,
@@ -517,7 +517,7 @@ def postprocessfilteropts(args, debug=False):
         )
         theprefilter.setfreqs(args.arbvec[2], args.arbvec[0], args.arbvec[1], args.arbvec[3])
     else:
-        theprefilter = tide_filt.NoncausalFilter(
+        theprefilter = dd_filt.NoncausalFilter(
             args.filterband,
             transferfunc=args.filtertype,
             padtime=args.padseconds,
@@ -873,7 +873,7 @@ def addsimilarityopts(parser):
 
 def setargs(thegetparserfunc, inputargs=None):
     """
-    Compile arguments for rapidtide workflow.
+    Compile arguments for derivdelay workflow.
     """
     if inputargs is None:
         # get arguments from the command line
