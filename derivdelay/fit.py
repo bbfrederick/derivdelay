@@ -31,7 +31,7 @@ from scipy.stats import entropy, moment
 from sklearn.linear_model import LinearRegression
 from statsmodels.robust import mad
 
-import rapidtide.util as tide_util
+import derivdelay.util as dd_util
 
 # ---------------------------------------- Global constants -------------------------------------------
 defaultbutterorder = 6
@@ -804,7 +804,7 @@ def findmaxlag_gauss(
     # make an initial guess at the fit parameters for the gaussian
     # start with finding the maximum value
     if useguess:
-        maxindex = tide_util.valtoindex(thexcorr_x, maxguess)
+        maxindex = dd_util.valtoindex(thexcorr_x, maxguess)
         nlowerlim = int(maxindex - widthmax / 2.0)
         nupperlim = int(maxindex + widthmax / 2.0)
         if nlowerlim < lowerlim:
@@ -1449,7 +1449,7 @@ def getpeaks(xvals, yvals, xrange=None, bipolar=False, displayplots=False):
     else:
         lagmin = xrange[0]
         lagmax = xrange[1]
-    originloc = tide_util.valtoindex(xvals, 0.0, discrete=False)
+    originloc = dd_util.valtoindex(xvals, 0.0, discrete=False)
     for thepeak in peaks:
         if lagmin <= xvals[thepeak] <= lagmax:
             if bipolar:
@@ -1457,7 +1457,7 @@ def getpeaks(xvals, yvals, xrange=None, bipolar=False, displayplots=False):
                     [
                         xvals[thepeak],
                         yvals[thepeak],
-                        tide_util.valtoindex(xvals, xvals[thepeak], discrete=False) - originloc,
+                        dd_util.valtoindex(xvals, xvals[thepeak], discrete=False) - originloc,
                     ]
                 )
             else:
@@ -1466,7 +1466,7 @@ def getpeaks(xvals, yvals, xrange=None, bipolar=False, displayplots=False):
                         [
                             xvals[thepeak],
                             yvals[thepeak],
-                            tide_util.valtoindex(xvals, xvals[thepeak], discrete=False)
+                            dd_util.valtoindex(xvals, xvals[thepeak], discrete=False)
                             - originloc,
                         ]
                     )
@@ -1841,7 +1841,7 @@ def simfuncpeakfit(
     flipfac = 1.0
     corrfunc = incorrfunc + 0.0
     if useguess:
-        maxindex = tide_util.valtoindex(corrtimeaxis, maxguess)
+        maxindex = dd_util.valtoindex(corrtimeaxis, maxguess)
         if (corrfunc[maxindex] < 0.0) and bipolar:
             flipfac = -1.0
     else:

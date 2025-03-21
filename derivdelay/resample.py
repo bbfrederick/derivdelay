@@ -35,10 +35,10 @@ import pylab as pl
 import scipy as sp
 from scipy import fftpack, signal
 
-import rapidtide.filter as tide_filt
-import rapidtide.fit as tide_fit
-import rapidtide.io as tide_io
-import rapidtide.util as tide_util
+import derivdelay.filter as dd_filt
+import derivdelay.fit as dd_fit
+import derivdelay.io as dd_io
+import derivdelay.util as dd_util
 
 if pyfftwpresent:
     fftpack = pyfftw.interfaces.scipy_fftpack
@@ -100,7 +100,7 @@ class ConvolutionGridder:
         fullwidthpts += ((fullwidthpts % 2) - 1)
         self.hires_x = np.linspace(-fullwidth / 2.0, fullwidth / 2.0, numpts = fullwidthpts, endpoint=True)
         if method == 'gauss':
-            self.hires_y = tide_fit.gauss_eval(self.hires_x, np.array([1.0, 0.0, width])
+            self.hires_y = dd_fit.gauss_eval(self.hires_x, np.array([1.0, 0.0, width])
         if debug:
             print(self.hires_x)
         if doplot:
@@ -190,7 +190,7 @@ def congrid(xaxis, loc, val, width, kernel="kaiser", cyclic=True, debug=False):
             kernelindex = int((width - 1.5) // 0.5)
 
     # find the closest grid point to the target location, calculate relative offsets from this point
-    center = tide_util.valtoindex(xaxis, loc)
+    center = dd_util.valtoindex(xaxis, loc)
     offset = np.fmod(np.round((loc - xaxis[center]) / xstep, 3), 1.0)  # will vary from -0.5 to 0.5
     if cyclic:
         if center == len(xaxis) - 1 and offset > 0.5:
@@ -224,7 +224,7 @@ def congrid(xaxis, loc, val, width, kernel="kaiser", cyclic=True, debug=False):
                 )
                 + offset
             )
-            congridyvals[offsetkey] = tide_fit.gauss_eval(xvals, np.array([1.0, 0.0, width]))
+            congridyvals[offsetkey] = dd_fit.gauss_eval(xvals, np.array([1.0, 0.0, width]))
             yvals = congridyvals[offsetkey]
         startpt = int(center - widthinpts // 2)
         indices = range(startpt, startpt + widthinpts)
@@ -245,10 +245,10 @@ def congrid(xaxis, loc, val, width, kernel="kaiser", cyclic=True, debug=False):
             xvals = indices - center + offset
             if kernel == "gauss":
                 sigma = optsigma[kernelindex]
-                congridyvals[offsetkey] = tide_fit.gauss_eval(xvals, np.array([1.0, 0.0, sigma]))
+                congridyvals[offsetkey] = dd_fit.gauss_eval(xvals, np.array([1.0, 0.0, sigma]))
             elif kernel == "kaiser":
                 beta = optbeta[kernelindex]
-                congridyvals[offsetkey] = tide_fit.kaiserbessel_eval(
+                congridyvals[offsetkey] = dd_fit.kaiserbessel_eval(
                     xvals, np.array([beta, width / 2.0])
                 )
             else:
@@ -346,7 +346,7 @@ class FastResampler:
         print(f"{prefix}{self.hires_y[-1]=}")
 
     def save(self, outputname):
-        tide_io.writebidstsv(
+        dd_io.writebidstsv(
             outputname,
             self.timecourse,
             1.0 / self.initstep,
@@ -396,7 +396,7 @@ def FastResamplerFromFile(inputname, colspec=None, debug=False, **kwargs):
         indata,
         incompressed,
         incolsource,
-    ) = tide_io.readbidstsv(inputname, colspec=colspec, debug=debug)
+    ) = dd_io.readbidstsv(inputname, colspec=colspec, debug=debug)
     if len(incolumns) > 1:
         raise ValueError("Multiple columns in input file")
     intimecourse = indata[0, :]
@@ -442,7 +442,7 @@ def doresample(
         frontpad = rawxpad + orig_x[0] - padlen * tstep
         backpad = rawxpad + orig_x[-1] + tstep
         pad_x = np.concatenate((frontpad, orig_x, backpad))
-        pad_y = tide_filt.padvec(orig_y, padlen=padlen, padtype=padtype)
+        pad_y = dd_filt.padvec(orig_y, padlen=padlen, padtype=padtype)
     else:
         pad_x = orig_x
         pad_y = orig_y
@@ -464,23 +464,23 @@ def doresample(
     final_freq = len(new_x) / (new_x[-1] - new_x[0])
     if antialias and (init_freq > final_freq):
         aafilterfreq = final_freq / 2.0
-        aafilter = tide_filt.NoncausalFilter(filtertype="arb", transferfunc="trapezoidal")
+        aafilter = dd_filt.NoncausalFilter(filtertype="arb", transferfunc="trapezoidal")
         aafilter.setfreqs(0.0, 0.0, 0.95 * aafilterfreq, aafilterfreq)
         pad_y = aafilter.apply(init_freq, pad_y)
 
     if method == "cubic":
         cj = signal.cspline1d(pad_y)
-        # return tide_filt.unpadvec(
+        # return dd_filt.unpadvec(
         #   np.float64(signal.cspline1d_eval(cj, new_x, dx=(orig_x[1] - orig_x[0]), x0=orig_x[0])), padlen=padlen)
         return signal.cspline1d_eval(cj, new_x, dx=(orig_x[1] - orig_x[0]), x0=orig_x[0])
     elif method == "quadratic":
         qj = signal.qspline1d(pad_y)
-        # return tide_filt.unpadvec(
+        # return dd_filt.unpadvec(
         #    np.float64(signal.qspline1d_eval(qj, new_x, dx=(orig_x[1] - orig_x[0]), x0=orig_x[0])), padlen=padlen)
         return signal.qspline1d_eval(qj, new_x, dx=(orig_x[1] - orig_x[0]), x0=orig_x[0])
     elif method == "univariate":
         interpolator = sp.interpolate.UnivariateSpline(pad_x, pad_y, k=3, s=0)  # s=0 interpolates
-        # return tide_filt.unpadvec(np.float64(interpolator(new_x)), padlen=padlen)
+        # return dd_filt.unpadvec(np.float64(interpolator(new_x)), padlen=padlen)
         return np.float64(interpolator(new_x))
     else:
         print("invalid interpolation method")
@@ -601,9 +601,7 @@ def upsample(inputdata, Fs_init, Fs_higher, method="univariate", intfac=False, d
         numresamppts = int(endpoint // ts_higher + 1)
     upsampled_x = np.arange(0.0, ts_higher * numresamppts, ts_higher)
     upsampled_y = doresample(orig_x, inputdata, upsampled_x, method=method)
-    initfilter = tide_filt.NoncausalFilter(
-        filtertype="arb", transferfunc="trapezoidal", debug=debug
-    )
+    initfilter = dd_filt.NoncausalFilter(filtertype="arb", transferfunc="trapezoidal", debug=debug)
     stopfreq = np.min([1.1 * Fs_init / 2.0, Fs_higher / 2.0])
     initfilter.setfreqs(0.0, 0.0, Fs_init / 2.0, stopfreq)
     upsampled_y = initfilter.apply(Fs_higher, upsampled_y)
@@ -663,7 +661,7 @@ def dotwostepresample(
     if antialias:
         starttime = time.time()
         aafilterfreq = np.min([final_freq, init_freq]) / 2.0
-        aafilter = tide_filt.NoncausalFilter(
+        aafilter = dd_filt.NoncausalFilter(
             filtertype="arb", transferfunc="trapezoidal", debug=debug
         )
         aafilter.setfreqs(0.0, 0.0, 0.95 * aafilterfreq, aafilterfreq)

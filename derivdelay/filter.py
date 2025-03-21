@@ -16,7 +16,7 @@
 #   limitations under the License.
 #
 #
-"""This module contains all the filtering operations for the rapidtide
+"""This module contains all the filtering operations for the derivdelay
 package.
 
 """

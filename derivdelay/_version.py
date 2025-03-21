@@ -52,8 +52,8 @@ def get_config() -> VersioneerConfig:
     cfg.VCS = "git"
     cfg.style = "pep440"
     cfg.tag_prefix = "v"
-    cfg.parentdir_prefix = "rapidtide-"
-    cfg.versionfile_source = "rapidtide/_version.py"
+    cfg.parentdir_prefix = "derivdelay-"
+    cfg.versionfile_source = "derivdelay/_version.py"
     cfg.verbose = False
     return cfg
 

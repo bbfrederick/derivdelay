@@ -27,7 +27,7 @@ import nibabel as nib
 import numpy as np
 import pandas as pd
 
-from rapidtide.tests.utils import mse
+from derivdelay.tests.utils import mse
 
 
 # ---------------------------------------- NIFTI file manipulation ---------------------------

@@ -22,9 +22,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-from rapidtide.resample import FastResampler, FastResamplerFromFile
-from rapidtide.tests.utils import mse
-from rapidtide.tests.utils import get_test_temp_path
+from derivdelay.resample import FastResampler, FastResamplerFromFile
+from derivdelay.tests.utils import mse
+from derivdelay.tests.utils import get_test_temp_path
 
 
 def test_FastResampler(debug=False):

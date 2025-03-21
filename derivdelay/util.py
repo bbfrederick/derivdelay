@@ -32,8 +32,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import rapidtide._version as tide_versioneer
-import rapidtide.io as tide_io
+import derivdelay._version as dd_versioneer
+import derivdelay.io as dd_io
 
 LGR = logging.getLogger(__name__)
 TimingLGR = logging.getLogger("TIMING")
@@ -305,7 +305,7 @@ def findreferencedir():
             sitepackages_dir = None
     referencedir = os.path.join(
         sitepackages_dir,
-        "rapidtide",
+        "derivdelay",
         "data",
         "reference",
     )
@@ -324,7 +324,7 @@ def savecommandline(theargs, thename):
     -------
 
     """
-    tide_io.writevec([" ".join(theargs)], thename + "_commandline.txt")
+    dd_io.writevec([" ".join(theargs)], thename + "_commandline.txt")
 
 
 def startendcheck(timepoints, startpoint, endpoint):
@@ -529,7 +529,7 @@ def version():
             theversion = thedirectversion
     else:
         try:
-            versioninfo = tide_versioneer.get_versions()
+            versioninfo = dd_versioneer.get_versions()
         except:
             return "UNKNOWN", "UNKNOWN", "UNKNOWN", "UNKNOWN"
         isdirty = versioninfo["dirty"]
@@ -653,7 +653,7 @@ def proctiminginfo(thetimings, outputfile="", extraheader=None):
         theinfolist.append(outstring)
         lasteventtime = float(theevent[1])
     if outputfile != "":
-        tide_io.writevec(theinfolist, outputfile)
+        dd_io.writevec(theinfolist, outputfile)
 
 
 # timecourse functions
@@ -838,7 +838,7 @@ def comparemap(map1, map2, mask=None, debug=False):
     return mindiff, maxdiff, meandiff, mse, minreldiff, maxreldiff, meanreldiff, relmse
 
 
-def comparerapidtideruns(root1, root2, debug=False):
+def comparederivdelayruns(root1, root2, debug=False):
     results = {}
     maskname1 = f"{root1}_desc-corrfit_mask.nii.gz"
     (
@@ -847,7 +847,7 @@ def comparerapidtideruns(root1, root2, debug=False):
         maskhdr1,
         themaskdims1,
         themasksizes1,
-    ) = tide_io.readfromnifti(maskname1)
+    ) = dd_io.readfromnifti(maskname1)
     maskname2 = f"{root2}_desc-corrfit_mask.nii.gz"
     (
         masknim2,
@@ -855,7 +855,7 @@ def comparerapidtideruns(root1, root2, debug=False):
         maskhdr2,
         themaskdims2,
         themasksizes2,
-    ) = tide_io.readfromnifti(maskname2)
+    ) = dd_io.readfromnifti(maskname2)
 
     # compare maps
     for map in [
@@ -875,13 +875,13 @@ def comparerapidtideruns(root1, root2, debug=False):
             print(f"checking map {map}")
         filename1 = f"{root1}_desc-{map}_map.nii.gz"
         filename2 = f"{root2}_desc-{map}_map.nii.gz"
-        if tide_io.checkspacematch(maskhdr1, maskhdr2):
+        if dd_io.checkspacematch(maskhdr1, maskhdr2):
             mask = maskdata1 * maskdata2
             if os.path.isfile(filename1) and os.path.isfile(filename2):
                 # files exist - read them in and process them
-                nim1, data1, hdr1, thedims1, thesizes1 = tide_io.readfromnifti(filename1)
-                nim2, data2, hdr2, thedims2, thesizes2 = tide_io.readfromnifti(filename2)
-                if tide_io.checkspacematch(hdr1, hdr2) and tide_io.checkspacematch(hdr1, maskhdr1):
+                nim1, data1, hdr1, thedims1, thesizes1 = dd_io.readfromnifti(filename1)
+                nim2, data2, hdr2, thedims2, thesizes2 = dd_io.readfromnifti(filename2)
+                if dd_io.checkspacematch(hdr1, hdr2) and dd_io.checkspacematch(hdr1, maskhdr1):
                     # files match in size
                     results[map] = {}
                     (
@@ -918,7 +918,7 @@ def comparerapidtideruns(root1, root2, debug=False):
         filespec2 = f"{root2}_desc-{timecourse}"
         allpresent = True
         try:
-            dummy, dummy, dummy, timecourse1, dummy, dummy = tide_io.readvectorsfromtextfile(
+            dummy, dummy, dummy, timecourse1, dummy, dummy = dd_io.readvectorsfromtextfile(
                 filespec1, onecol=True
             )
         except FileNotFoundError:
@@ -931,7 +931,7 @@ def comparerapidtideruns(root1, root2, debug=False):
             allpresent = False
 
         try:
-            dummy, dummy, dummy, timecourse2, dummy, dummy = tide_io.readvectorsfromtextfile(
+            dummy, dummy, dummy, timecourse2, dummy, dummy = dd_io.readvectorsfromtextfile(
                 filespec2, onecol=True
             )
         except FileNotFoundError:
@@ -981,15 +981,15 @@ def comparehappyruns(root1, root2, debug=False):
             maskhdr1,
             themaskdims1,
             themasksizes1,
-        ) = tide_io.readfromnifti(maskname1)
+        ) = dd_io.readfromnifti(maskname1)
         (
             masknim2,
             maskdata2,
             maskhdr2,
             themaskdims2,
             themasksizes2,
-        ) = tide_io.readfromnifti(maskname2)
-        if tide_io.checkspacematch(maskhdr1, maskhdr2):
+        ) = dd_io.readfromnifti(maskname2)
+        if dd_io.checkspacematch(maskhdr1, maskhdr2):
             mask = maskdata1 * maskdata2
             if os.path.isfile(filename1) and os.path.isfile(filename2):
                 # files exist - read them in and process them
@@ -997,9 +997,9 @@ def comparehappyruns(root1, root2, debug=False):
                     print("comparing maps:")
                     print("\t", filename1)
                     print("\t", filename2)
-                nim1, data1, hdr1, thedims1, thesizes1 = tide_io.readfromnifti(filename1)
-                nim2, data2, hdr2, thedims2, thesizes2 = tide_io.readfromnifti(filename2)
-                if tide_io.checkspacematch(hdr1, hdr2) and tide_io.checkspacematch(hdr1, maskhdr1):
+                nim1, data1, hdr1, thedims1, thesizes1 = dd_io.readfromnifti(filename1)
+                nim2, data2, hdr2, thedims2, thesizes2 = dd_io.readfromnifti(filename2)
+                if dd_io.checkspacematch(hdr1, hdr2) and dd_io.checkspacematch(hdr1, maskhdr1):
                     # files match in size
                     results[map] = {}
                     (
@@ -1034,8 +1034,8 @@ def comparehappyruns(root1, root2, debug=False):
                 print("comparing timecourses:")
                 print("\t", filename1)
                 print("\t", filename2)
-            data1 = np.transpose(tide_io.readvecs(filename1))
-            data2 = np.transpose(tide_io.readvecs(filename2))
+            data1 = np.transpose(dd_io.readvecs(filename1))
+            data2 = np.transpose(dd_io.readvecs(filename2))
             if len(data1) == len(data2):
                 # files match in size
                 results[timecourse] = {}

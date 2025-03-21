@@ -21,7 +21,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-from rapidtide.miscmath import stdnormalize
+from derivdelay.miscmath import stdnormalize
 
 from derivdelay.filter import NoncausalFilter
 from derivdelay.refinedelay import (

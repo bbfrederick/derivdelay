@@ -33,8 +33,8 @@ with warnings.catch_warnings():
 import scipy as sp
 from scipy.stats import johnsonsb, kurtosis, kurtosistest, skew, skewtest
 
-import rapidtide.fit as tide_fit
-import rapidtide.io as tide_io
+import derivdelay.fit as dd_fit
+import derivdelay.io as dd_io
 
 if pyfftwpresent:
     fftpack = pyfftw.interfaces.scipy_fftpack
@@ -142,7 +142,7 @@ def fitgausspdf(thehist, histlen, thedata, displayplots=False, nozero=False, deb
         print(f"\tPeak height: {peakheight}")
         print(f"\tPeak lag: {peaklag}")
         print(f"\tPeak width: {peakwidth}")
-    peakheight, peaklag, peakwidth = tide_fit.gaussfit(
+    peakheight, peaklag, peakwidth = dd_fit.gaussfit(
         peakheight, peaklag, peakwidth, thestore[0, :], thestore[1, :]
     )
     if debug:
@@ -162,7 +162,7 @@ def fitgausspdf(thehist, histlen, thedata, displayplots=False, nozero=False, deb
         thestore[1, 0] = zeroterm
 
     # generate the johnsonsb function
-    gaussvals = tide_fit.gauss_eval(thestore[0, :], params)
+    gaussvals = dd_fit.gauss_eval(thestore[0, :], params)
     corrfac = (1.0 - zeroterm) / (1.0 * histlen)
     gaussvals *= corrfac
     gaussvals[0] = zeroterm
@@ -356,7 +356,7 @@ def rfromp(fitfile, thepercentiles):
     -------
 
     """
-    thefit = np.array(tide_io.readvecs(fitfile)[0]).astype("float64")
+    thefit = np.array(dd_io.readvecs(fitfile)[0]).astype("float64")
     print(f"thefit = {thefit}")
     return getfracvalsfromfit(thefit, thepercentiles)
 
@@ -635,7 +635,7 @@ def gethistprops(
         numbins += 1
     peakwidth = (thestore[0, peakindex + numbins] - thestore[0, peakindex]) * 2.0
     if refine:
-        peakheight, peaklag, peakwidth = tide_fit.gaussfit(
+        peakheight, peaklag, peakwidth = dd_fit.gaussfit(
             peakheight, peaklag, peakwidth, thestore[0, :], thestore[1, :]
         )
     return peaklag, peakheight, peakwidth
@@ -690,7 +690,7 @@ def prochistogram(
         print("Before refine")
         print(f"{peakindex=}, {peakloc=}, {peakheight=}, {peakwidth=}")
     if refine:
-        peakheight, peakloc, peakwidth = tide_fit.gaussfit(
+        peakheight, peakloc, peakwidth = dd_fit.gaussfit(
             peakheight, peakloc, peakwidth, xvals, yvals
         )
     if debug:
@@ -787,7 +787,7 @@ def echoloc(indata, histlen, startoffset=5.0):
     ):
         numbins += 1
     echopeakwidth = (thestore[0, echopeakindex + numbins] - thestore[0, echopeakindex]) * 2.0
-    echopeakheight, echopeakloc, echopeakwidth = tide_fit.gaussfit(
+    echopeakheight, echopeakloc, echopeakwidth = dd_fit.gaussfit(
         echopeakheight, echopeakloc, echopeakwidth, thestore[0, :], thestore[1, :]
     )
     return echopeakloc - peakloc, (echopeakheight * echopeakwidth) / (peakheight * peakwidth)
@@ -851,8 +851,8 @@ def makeandsavehistogram(
     else:
         varroot = dictvarname
     if thedict is None:
-        tide_io.writenpvecs(np.array([centerofmass]), outname + "_centerofmass.txt")
-        tide_io.writenpvecs(np.array([peakloc]), outname + "_peak.txt")
+        dd_io.writenpvecs(np.array([centerofmass]), outname + "_centerofmass.txt")
+        dd_io.writenpvecs(np.array([peakloc]), outname + "_peak.txt")
     else:
         thedict[varroot + "_centerofmass.txt"] = centerofmass
         thedict[varroot + "_peak.txt"] = peakloc
@@ -870,7 +870,7 @@ def makeandsavehistogram(
         extraheaderinfo["pct75"],
         extraheaderinfo["pct98"],
     ) = getfracvals(indata, [0.02, 0.25, 0.5, 0.75, 0.98], debug=debug)
-    tide_io.writebidstsv(
+    dd_io.writebidstsv(
         outname,
         np.transpose(thestore[1, :]),
         1.0 / (thestore[0, 1] - thestore[0, 0]),
