@@ -23,12 +23,16 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-import derivdelay.io as dd_io
 import derivdelay.miscmath as dd_math
-import derivdelay.refinedelay as dd_refinedelay
 import derivdelay.resample as dd_resample
 from derivdelay.filter import NoncausalFilter
-from derivdelay.tests.utils import get_examples_path, get_test_temp_path, mse
+from derivdelay.refinedelay import (
+    filterderivratios,
+    getderivratios,
+    ratiotodelay,
+    trainratiotooffset,
+)
+from derivdelay.tests.utils import get_test_temp_path, mse
 
 
 def eval_refinedelay(
@@ -81,7 +85,7 @@ def eval_refinedelay(
     lagtcgenerator = dd_resample.FastResampler(timeaxis, sLFO, padtime=padtime)
 
     # find the mapping of glm ratios to delays
-    dd_refinedelay.trainratiotooffset(
+    trainratiotooffset(
         lagtcgenerator,
         timeaxis,
         os.path.join(get_test_temp_path(), "refinedelaytest" + outputsuffix),
@@ -118,74 +122,29 @@ def eval_refinedelay(
             plt.plot(timeaxis, fmridata[i, :])
         plt.show()"""
 
-    # make a fake header
-    nim, nim_data, nim_hdr, thedims, thesizes = dd_io.readfromnifti(
-        os.path.join(get_examples_path(), "sub-RAPIDTIDETEST_brainmask.nii.gz")
-    )
-    xdim, ydim, slicedim, fmritr = dd_io.parseniftisizes(thesizes)
-    theheader = copy.copy(nim_hdr)
-    theheader["dim"][0] = 3
-    theheader["dim"][1] = nativespaceshape[0]
-    theheader["dim"][2] = nativespaceshape[1]
-    theheader["dim"][3] = nativespaceshape[2]
-    theheader["pixdim"][1] = 1.0
-    theheader["pixdim"][2] = 1.0
-    theheader["pixdim"][3] = 1.0
-    theheader["pixdim"][4] = 1.0
+    thedims = np.ones(nativespaceshape, dtype=float)
 
     rt_floattype = "float64"
-    rt_floatset = np.float64
-    glmmean = np.zeros(numlags, dtype=rt_floattype)
     rvalue = np.zeros(numlags, dtype=rt_floattype)
     r2value = np.zeros(numlags, dtype=rt_floattype)
-    fitNorm = np.zeros((numlags, 2), dtype=rt_floattype)
     fitcoeff = np.zeros((numlags, 2), dtype=rt_floattype)
-    movingsignal = np.zeros(internalvalidfmrishape, dtype=rt_floattype)
-    lagtc = np.zeros(internalvalidfmrishape, dtype=rt_floattype)
-    filtereddata = np.zeros(internalvalidfmrishape, dtype=rt_floattype)
-    optiondict = {
-        "glmthreshval": 0.0,
-        "saveminimumglmfiles": False,
-        "nprocs_makelaggedtcs": 1,
-        "nprocs_glm": 1,
-        "mp_chunksize": 1000,
-        "showprogressbar": False,
-        "alwaysmultiproc": False,
-        "memprofile": False,
-        "focaldebug": debug,
-        "fmrifreq": Fs,
-        "textio": False,
-    }
 
-    glmderivratios = dd_refinedelay.getderivratios(
+    glmderivratios = getderivratios(
         fmridata,
-        validvoxels,
-        timeaxis,
-        0.0 * lagtimes,
-        fmrimask,
-        lagtcgenerator,
-        "glm",
-        "refinedelaytest",
-        sampletime,
-        glmmean,
         rvalue,
         r2value,
-        fitNorm[:, :2],
         fitcoeff[:, :2],
-        movingsignal,
-        lagtc,
-        filtereddata,
-        None,
-        None,
-        optiondict,
+        timeaxis,
+        lagtcgenerator,
+        numderivs=1,
         debug=debug,
     )
 
-    medfilt, filteredglmderivratios, themad = dd_refinedelay.filterderivratios(
+    medfilt, filteredglmderivratios, themad = filterderivratios(
         glmderivratios,
         nativespaceshape,
         validvoxels,
-        (xdim, ydim, slicedim),
+        thedims,
         patchthresh=3.0,
         fileiscifti=False,
         textio=False,
@@ -195,7 +154,7 @@ def eval_refinedelay(
 
     delayoffset = filteredglmderivratios * 0.0
     for i in range(filteredglmderivratios.shape[0]):
-        delayoffset[i] = dd_refinedelay.ratiotodelay(filteredglmderivratios[i])
+        delayoffset[i] = ratiotodelay(filteredglmderivratios[i])
 
     # do the tests
     msethresh = 0.1

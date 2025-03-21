@@ -21,9 +21,9 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-from derivdelay.miscmath import stdnormalize
 
 from derivdelay.filter import NoncausalFilter
+from derivdelay.miscmath import stdnormalize
 from derivdelay.refinedelay import (
     filterderivratios,
     getderivratios,
@@ -151,28 +151,9 @@ def eval_refinedelay(
     thedims = np.ones(nativespaceshape, dtype=float)
 
     rt_floattype = "float64"
-    rt_floatset = np.float64
-    glmmean = np.zeros(numlags, dtype=rt_floattype)
     rvalue = np.zeros(numlags, dtype=rt_floattype)
     r2value = np.zeros(numlags, dtype=rt_floattype)
-    fitNorm = np.zeros((numlags, 2), dtype=rt_floattype)
     fitcoeff = np.zeros((numlags, 2), dtype=rt_floattype)
-    movingsignal = np.zeros(internalvalidfmrishape, dtype=rt_floattype)
-    lagtc = np.zeros(internalvalidfmrishape, dtype=rt_floattype)
-    filtereddata = np.zeros(internalvalidfmrishape, dtype=rt_floattype)
-    optiondict = {
-        "glmthreshval": 0.0,
-        "saveminimumglmfiles": False,
-        "nprocs_makelaggedtcs": 1,
-        "nprocs_glm": 1,
-        "mp_chunksize": 1000,
-        "showprogressbar": False,
-        "alwaysmultiproc": False,
-        "memprofile": False,
-        "focaldebug": debug,
-        "fmrifreq": Fs,
-        "textio": False,
-    }
 
     glmderivratios = getderivratios(
         fmridata,
