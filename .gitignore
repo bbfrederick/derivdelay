@@ -21,6 +21,10 @@ derivdelay/tests/*.jpg
 derivdelay/tests/*.json
 derivdelay/tests/*.tsv.gz
 derivdelay/tests/*.nii.gz
+derivdelay/*.tsv.gz
+derivdelay/*.json
+*.tsv.gz
+*.json
 
 # some local test data
 derivdelay/data/examples/src/scratch
