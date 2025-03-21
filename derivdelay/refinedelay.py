@@ -20,13 +20,56 @@ import numpy as np
 import numpy.polynomial.polynomial as poly
 from scipy.interpolate import CubicSpline, UnivariateSpline
 from scipy.ndimage import median_filter
+from scipy.special import factorial
 from statsmodels.robust import mad
 
-import rapidtide.filter as tide_filt
-import rapidtide.io as tide_io
-import rapidtide.workflows.glmfrommaps as tide_glmfrommaps
+import derivdelay.filter as dd_filt
+import derivdelay.fit as dd_fit
+import derivdelay.io as dd_io
 
 global ratiotooffsetfunc, maplimits
+
+
+def makevoxelspecificderivs(theevs, nderivs=1, debug=False):
+    r"""Perform multicomponent expansion on theevs (each ev replaced by itself,
+    its square, its cube, etc.).
+
+    Parameters
+    ----------
+    theevs : 2D numpy array
+        NxP array of voxel specific explanatory variables (one timecourse per voxel)
+        :param theevs:
+
+    nderivs : integer
+        Number of components to use for each ev.  Each successive component is a
+        higher power of the initial ev (initial, square, cube, etc.)
+        :param nderivs:
+
+    debug: bool
+        Flag to toggle debugging output
+        :param debug:
+    """
+    if debug:
+        print(f"{theevs.shape=}")
+    if nderivs == 0:
+        thenewevs = theevs
+    else:
+        taylorcoffs = np.zeros((nderivs + 1), dtype=np.float64)
+        taylorcoffs[0] = 1.0
+        thenewevs = np.zeros((theevs.shape[0], theevs.shape[1], nderivs + 1), dtype=float)
+        for i in range(1, nderivs + 1):
+            taylorcoffs[i] = 1.0 / factorial(i)
+        for thevoxel in range(0, theevs.shape[0]):
+            thenewevs[thevoxel, :, 0] = theevs[thevoxel, :] * 1.0
+            for i in range(1, nderivs + 1):
+                thenewevs[thevoxel, :, i] = taylorcoffs[i] * np.gradient(
+                    thenewevs[thevoxel, :, i - 1]
+                )
+    if debug:
+        print(f"{nderivs=}")
+        print(f"{thenewevs.shape=}")
+
+    return thenewevs
 
 
 def smooth(y, box_pts):
@@ -45,7 +88,7 @@ def trainratiotooffset(
     numpoints=501,
     smoothpts=3,
     edgepad=5,
-    glmderivs=1,
+    numderivs=1,
     debug=False,
 ):
     global ratiotooffsetfunc, maplimits
@@ -59,7 +102,7 @@ def trainratiotooffset(
         print("\tmaxdelay:", maxdelay)
         print("\tsmoothpts:", smoothpts)
         print("\tedgepad:", edgepad)
-        print("\tglmderivs:", glmderivs)
+        print("\tnumderivs:", numderivs)
         print("\tlagtcgenerator:", lagtcgenerator)
     # make a delay map
     delaystep = (maxdelay - mindelay) / (numpoints - 1)
@@ -110,62 +153,48 @@ def trainratiotooffset(
         "textio": False,
     }
 
-    glmderivratios = getderivratios(
+    derivcoffratios = getderivratios(
         fmridata,
-        validvoxels,
-        timeaxis,
-        0.0 * lagtimes,
-        fmrimask,
-        lagtcgenerator,
-        "glm",
-        "refinedelaytest",
-        sampletime,
-        glmmean,
         rvalue,
         r2value,
-        fitNorm[:, :2],
         fitcoeff[:, :2],
-        movingsignal,
-        lagtc,
-        filtereddata,
-        None,
-        None,
-        optiondict,
-        glmderivs=glmderivs,
+        timeaxis,
+        lagtcgenerator,
+        numderivs=numderivs,
         debug=debug,
     )
     if debug:
         print("before trimming")
-        print(f"{glmderivratios.shape=}")
+        print(f"{derivcoffratios.shape=}")
         print(f"{lagtimes.shape=}")
-    if glmderivs == 1:
-        smoothglmderivratios = tide_filt.unpadvec(
-            smooth(tide_filt.padvec(glmderivratios, padlen=20, padtype="constant"), smoothpts),
+    if numderivs == 1:
+        smoothderivcoffratios = dd_filt.unpadvec(
+            smooth(dd_filt.padvec(derivcoffratios, padlen=20, padtype="constant"), smoothpts),
             padlen=20,
         )
-        glmderivratios = glmderivratios[edgepad:-edgepad]
-        smoothglmderivratios = smoothglmderivratios[edgepad:-edgepad]
+        derivcoffratios = derivcoffratios[edgepad:-edgepad]
+        smoothderivcoffratios = smoothderivcoffratios[edgepad:-edgepad]
     else:
-        smoothglmderivratios = np.zeros_like(glmderivratios)
-        for i in range(glmderivs):
-            smoothglmderivratios[i, :] = tide_filt.unpadvec(
+        smoothderivcoffratios = np.zeros_like(derivcoffratios)
+        for i in range(numderivs):
+            smoothderivcoffratios[i, :] = dd_filt.unpadvec(
                 smooth(
-                    tide_filt.padvec(glmderivratios[i, :], padlen=20, padtype="constant"),
+                    dd_filt.padvec(derivcoffratios[i, :], padlen=20, padtype="constant"),
                     smoothpts,
                 ),
                 padlen=20,
             )
-        glmderivratios = glmderivratios[:, edgepad:-edgepad]
-        smoothglmderivratios = smoothglmderivratios[:, edgepad:-edgepad]
+        derivcoffratios = derivcoffratios[:, edgepad:-edgepad]
+        smoothderivcoffratios = smoothderivcoffratios[:, edgepad:-edgepad]
     lagtimes = lagtimes[edgepad:-edgepad]
     if debug:
         print("after trimming")
-        print(f"{glmderivratios.shape=}")
-        print(f"{smoothglmderivratios.shape=}")
+        print(f"{derivcoffratios.shape=}")
+        print(f"{smoothderivcoffratios.shape=}")
         print(f"{lagtimes.shape=}")
 
     # make sure the mapping function is legal
-    xaxis = smoothglmderivratios[::-1]
+    xaxis = smoothderivcoffratios[::-1]
     yaxis = lagtimes[::-1]
     midpoint = int(len(xaxis) // 2)
     lowerlim = midpoint + 0
@@ -181,7 +210,7 @@ def trainratiotooffset(
 
     if outputlevel != "min":
         resampaxis = np.linspace(xaxis[0], xaxis[-1], num=len(xaxis), endpoint=True)
-        tide_io.writebidstsv(
+        dd_io.writebidstsv(
             f"{outputname}_desc-ratiotodelayfunc_timeseries",
             ratiotooffsetfunc(resampaxis),
             1.0 / (resampaxis[1] - resampaxis[0]),
@@ -230,81 +259,82 @@ def coffstodelay(thecoffs, mindelay=-3.0, maxdelay=3.0, debug=False):
         return 0.0
 
 
+def fitOneTimecourse(theevs, thedata, rt_floatset=np.float64, rt_floattype="float64"):
+    # NOTE: if theevs is 2D, dimension 0 is number of points, dimension 1 is number of evs
+    thefit, R2 = dd_fit.mlregress(theevs, thedata)
+    if theevs.ndim > 1:
+        if thefit is None:
+            thefit = np.matrix(np.zeros((1, theevs.shape[1] + 1), dtype=rt_floattype))
+        fitcoeffs = rt_floatset(thefit[0, 1:])
+        if fitcoeffs[0, 0] < 0.0:
+            coeffsign = -1.0
+        else:
+            coeffsign = 1.0
+        if np.any(fitcoeffs) != 0.0:
+            pass
+        else:
+            R2 = 0.0
+        return (
+            rt_floatset(coeffsign * np.sqrt(R2)),
+            rt_floatset(R2),
+            fitcoeffs,
+        )
+    else:
+        fitcoeff = rt_floatset(thefit[0, 1])
+        if fitcoeff < 0.0:
+            coeffsign = -1.0
+        else:
+            coeffsign = 1.0
+        if fitcoeff == 0.0:
+            R2 = 0.0
+        return (
+            rt_floatset(coeffsign * np.sqrt(R2)),
+            rt_floatset(R2),
+            fitcoeff,
+        )
+
+
 def getderivratios(
-    fmri_data_valid,
-    validvoxels,
-    initial_fmri_x,
-    lagtimes,
-    fitmask,
-    genlagtc,
-    mode,
-    outputname,
-    oversamptr,
-    glmmean,
+    inputdata,
     rvalue,
     r2value,
-    fitNorm,
     fitcoeff,
-    movingsignal,
-    lagtc,
-    filtereddata,
-    LGR,
-    TimingLGR,
-    optiondict,
-    glmderivs=1,
+    initial_fmri_x,
+    genlagtc,
+    numderivs=1,
     debug=False,
 ):
-    if debug:
-        print("getderivratios")
-        print(f"{fitNorm.shape=}")
-        print(f"{fitcoeff.shape=}")
-        print(f"{glmderivs=}")
-    voxelsprocessed_glm, regressorset, evset = tide_glmfrommaps.glmfrommaps(
-        fmri_data_valid,
-        validvoxels,
-        initial_fmri_x,
-        lagtimes,
-        fitmask,
-        genlagtc,
-        mode,
-        outputname,
-        oversamptr,
-        glmmean,
-        rvalue,
-        r2value,
-        fitNorm,
-        fitcoeff,
-        movingsignal,
-        lagtc,
-        filtereddata,
-        LGR,
-        TimingLGR,
-        optiondict["glmthreshval"],
-        optiondict["saveminimumglmfiles"],
-        nprocs_makelaggedtcs=optiondict["nprocs_makelaggedtcs"],
-        nprocs_glm=optiondict["nprocs_glm"],
-        glmderivs=glmderivs,
-        mp_chunksize=optiondict["mp_chunksize"],
-        showprogressbar=optiondict["showprogressbar"],
-        alwaysmultiproc=optiondict["alwaysmultiproc"],
-        memprofile=optiondict["memprofile"],
-        debug=debug,
-    )
+    if numderivs > 0:
+        if debug:
+            print(f"adding derivatives up to order {numderivs} prior to regression")
+        baseev = genlagtc.yfromx(initial_fmri_x)
+        evset = makevoxelspecificderivs(baseev.reshape((1, -1)), numderivs).reshape((-1, 2))
+    else:
+        if debug:
+            print(f"using raw lagged regressors for regression")
+        evset = genlagtc.yfromx(initial_fmri_x)
+
+    for vox in range(fitcoeff.shape[0]):
+        (
+            rvalue[vox],
+            r2value[vox],
+            fitcoeff[vox, :],
+        ) = fitOneTimecourse(evset, inputdata[vox, :])
 
     # calculate the ratio of the first derivative to the main regressor
-    if glmderivs == 1:
-        glmderivratios = np.nan_to_num(fitcoeff[:, 1] / fitcoeff[:, 0])
+    if numderivs == 1:
+        derivcoffratios = np.nan_to_num(fitcoeff[:, 1] / fitcoeff[:, 0])
     else:
         numvoxels = fitcoeff.shape[0]
-        glmderivratios = np.zeros((glmderivs, numvoxels), dtype=np.float64)
-        for i in range(glmderivs):
-            glmderivratios[i, :] = np.nan_to_num(fitcoeff[:, i + 1] / fitcoeff[:, 0])
+        derivcoffratios = np.zeros((numderivs, numvoxels), dtype=np.float64)
+        for i in range(numderivs):
+            derivcoffratios[i, :] = np.nan_to_num(fitcoeff[:, i + 1] / fitcoeff[:, 0])
 
-    return glmderivratios
+    return derivcoffratios
 
 
 def filterderivratios(
-    glmderivratios,
+    derivcoffratios,
     nativespaceshape,
     validvoxels,
     thedims,
@@ -323,42 +353,42 @@ def filterderivratios(
         print(f"\t{nativespaceshape=}")
 
     # filter the ratio to find weird values
-    themad = mad(glmderivratios).astype(np.float64)
+    themad = mad(derivcoffratios).astype(np.float64)
     print(f"MAD of GLM derivative ratios = {themad}")
-    outmaparray, internalspaceshape = tide_io.makedestarray(
+    outmaparray, internalspaceshape = dd_io.makedestarray(
         nativespaceshape,
         textio=textio,
         fileiscifti=fileiscifti,
         rt_floattype=rt_floattype,
     )
-    mappedglmderivratios = tide_io.populatemap(
-        glmderivratios,
+    mappedderivcoffratios = dd_io.populatemap(
+        derivcoffratios,
         internalspaceshape,
         validvoxels,
         outmaparray,
         debug=debug,
     )
     if textio or fileiscifti:
-        medfilt = glmderivratios
-        filteredarray = glmderivratios
+        medfilt = derivcoffratios
+        filteredarray = derivcoffratios
     else:
         if debug:
-            print(f"{glmderivratios.shape=}, {mappedglmderivratios.shape=}")
+            print(f"{derivcoffratios.shape=}, {mappedderivcoffratios.shape=}")
         medfilt = median_filter(
-            mappedglmderivratios.reshape(nativespaceshape), size=(3, 3, 3)
+            mappedderivcoffratios.reshape(nativespaceshape), size=(3, 3, 3)
         ).reshape(internalspaceshape)[validvoxels]
         filteredarray = np.where(
-            np.fabs(glmderivratios - medfilt) > patchthresh * themad, medfilt, glmderivratios
+            np.fabs(derivcoffratios - medfilt) > patchthresh * themad, medfilt, derivcoffratios
         )
         if gausssigma > 0:
-            mappedfilteredarray = tide_io.populatemap(
+            mappedfilteredarray = dd_io.populatemap(
                 filteredarray,
                 internalspaceshape,
                 validvoxels,
                 outmaparray,
                 debug=debug,
             )
-            filteredarray = tide_filt.ssmooth(
+            filteredarray = dd_filt.ssmooth(
                 thedims[0],
                 thedims[1],
                 thedims[2],

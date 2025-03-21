@@ -17,12 +17,21 @@
 #
 #
 import argparse
+import os
 
+import matplotlib.pyplot as plt
 import numpy as np
+from rapidtide.miscmath import stdnormalize
 
-import derivdelay.io as dd_io
-import derivdelay.stats as dd_stats
-import derivdelay.workflows.parser_funcs as pf
+from derivdelay.filter import NoncausalFilter
+from derivdelay.refinedelay import (
+    filterderivratios,
+    getderivratios,
+    ratiotodelay,
+    trainratiotooffset,
+)
+from derivdelay.resample import FastResampler
+from derivdelay.tests.utils import mse
 
 
 def _get_parser():
@@ -53,20 +62,6 @@ def _get_parser():
     return parser
 
 
-import copy
-import os
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import numpy as np
-import rapidtide.io as tide_io
-import rapidtide.miscmath as tide_math
-import rapidtide.refinedelay as tide_refinedelay
-import rapidtide.resample as tide_resample
-from rapidtide.filter import NoncausalFilter
-from rapidtide.tests.utils import get_examples_path, get_test_temp_path, mse
-
-
 def eval_refinedelay(
     sampletime=0.72,
     tclengthinsecs=300.0,
@@ -78,6 +73,7 @@ def eval_refinedelay(
     displayplots=False,
     padtime=30.0,
     noiselevel=0.0,
+    outputdir=".",
     outputsuffix="",
     debug=False,
 ):
@@ -100,9 +96,9 @@ def eval_refinedelay(
 
     # make an sLFO timecourse
     timeaxis = np.linspace(0.0, sampletime * tclen, num=tclen, endpoint=False)
-    rawgms = tide_math.stdnormalize(np.random.normal(size=tclen))
+    rawgms = stdnormalize(np.random.normal(size=tclen))
     testfilter = NoncausalFilter(filtertype="lfo")
-    sLFO = tide_math.stdnormalize(testfilter.apply(Fs, rawgms))
+    sLFO = stdnormalize(testfilter.apply(Fs, rawgms))
     if displayplots:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -114,13 +110,13 @@ def eval_refinedelay(
     # now turn it into a lagtc generator
     numpadtrs = int(padtime // sampletime)
     padtime = sampletime * numpadtrs
-    lagtcgenerator = tide_resample.FastResampler(timeaxis, sLFO, padtime=padtime)
+    lagtcgenerator = FastResampler(timeaxis, sLFO, padtime=padtime)
 
     # find the mapping of glm ratios to delays
-    tide_refinedelay.trainratiotooffset(
+    trainratiotooffset(
         lagtcgenerator,
         timeaxis,
-        os.path.join(get_test_temp_path(), "refinedelaytest" + outputsuffix),
+        os.path.join(outputdir, "refinedelaytest" + outputsuffix),
         "norm",
         mindelay=mindelay,
         maxdelay=maxdelay,
@@ -141,9 +137,7 @@ def eval_refinedelay(
     fmrimask = np.ones(numlags, dtype=float)
     validvoxels = np.where(fmrimask > 0)[0]
     for i in range(numlags):
-        noisevec = tide_math.stdnormalize(
-            testfilter.apply(Fs, tide_math.stdnormalize(np.random.normal(size=tclen)))
-        )
+        noisevec = stdnormalize(testfilter.apply(Fs, stdnormalize(np.random.normal(size=tclen))))
         fmridata[i, :] = lagtcgenerator.yfromx(timeaxis - lagtimes[i]) + noiselevel * noisevec
 
     """if displayplots:
@@ -154,20 +148,7 @@ def eval_refinedelay(
             plt.plot(timeaxis, fmridata[i, :])
         plt.show()"""
 
-    # make a fake header
-    nim, nim_data, nim_hdr, thedims, thesizes = tide_io.readfromnifti(
-        os.path.join(get_examples_path(), "sub-RAPIDTIDETEST_brainmask.nii.gz")
-    )
-    xdim, ydim, slicedim, fmritr = tide_io.parseniftisizes(thesizes)
-    theheader = copy.copy(nim_hdr)
-    theheader["dim"][0] = 3
-    theheader["dim"][1] = nativespaceshape[0]
-    theheader["dim"][2] = nativespaceshape[1]
-    theheader["dim"][3] = nativespaceshape[2]
-    theheader["pixdim"][1] = 1.0
-    theheader["pixdim"][2] = 1.0
-    theheader["pixdim"][3] = 1.0
-    theheader["pixdim"][4] = 1.0
+    thedims = np.ones(nativespaceshape, dtype=float)
 
     rt_floattype = "float64"
     rt_floatset = np.float64
@@ -193,35 +174,22 @@ def eval_refinedelay(
         "textio": False,
     }
 
-    glmderivratios = tide_refinedelay.getderivratios(
+    glmderivratios = getderivratios(
         fmridata,
-        validvoxels,
-        timeaxis,
-        0.0 * lagtimes,
-        fmrimask,
-        lagtcgenerator,
-        "glm",
-        "refinedelaytest",
-        sampletime,
-        glmmean,
         rvalue,
         r2value,
-        fitNorm[:, :2],
         fitcoeff[:, :2],
-        movingsignal,
-        lagtc,
-        filtereddata,
-        None,
-        None,
-        optiondict,
+        timeaxis,
+        lagtcgenerator,
+        numderivs=1,
         debug=debug,
     )
 
-    medfilt, filteredglmderivratios, themad = tide_refinedelay.filterderivratios(
+    medfilt, filteredglmderivratios, themad = filterderivratios(
         glmderivratios,
         nativespaceshape,
         validvoxels,
-        (xdim, ydim, slicedim),
+        thedims,
         patchthresh=3.0,
         fileiscifti=False,
         textio=False,
@@ -231,7 +199,7 @@ def eval_refinedelay(
 
     delayoffset = filteredglmderivratios * 0.0
     for i in range(filteredglmderivratios.shape[0]):
-        delayoffset[i] = tide_refinedelay.ratiotodelay(filteredglmderivratios[i])
+        delayoffset[i] = ratiotodelay(filteredglmderivratios[i])
 
     # do the tests
     msethresh = 0.1
