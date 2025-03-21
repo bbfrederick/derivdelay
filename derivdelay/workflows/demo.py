@@ -20,9 +20,9 @@ import argparse
 
 import numpy as np
 
-import derivdleay.io as dd_io
-import derivdleay.stats as dd_stats
-import derivdleay.workflows.parser_funcs as pf
+import derivdelay.io as dd_io
+import derivdelay.stats as dd_stats
+import derivdelay.workflows.parser_funcs as pf
 
 
 def _get_parser():
@@ -35,66 +35,11 @@ def _get_parser():
         allow_abbrev=False,
     )
 
-    # Required arguments
-    pf.addreqinputtextfile(parser, "inputfilename", onecol=True)
-    pf.addreqoutputtextfile(parser, "outputroot")
-
-    # add optional arguments
     parser.add_argument(
-        "--numbins",
-        dest="histlen",
-        action="store",
-        type=int,
-        metavar="BINS",
-        help=("Number of histogram bins (default is 101)"),
-        default=101,
-    )
-    parser.add_argument(
-        "--minval",
-        dest="minval",
-        action="store",
-        type=lambda x: pf.is_float(parser, x),
-        metavar="MINVAL",
-        help="Minimum bin value in histogram.",
-        default=None,
-    )
-    parser.add_argument(
-        "--maxval",
-        dest="maxval",
-        action="store",
-        type=lambda x: pf.is_float(parser, x),
-        metavar="MAXVAL",
-        help="Maximum bin value in histogram.",
-        default=None,
-    )
-    parser.add_argument(
-        "--robustrange",
-        dest="robustrange",
+        "--displayplots",
+        dest="displayplots",
         action="store_true",
-        help=("Set histogram limits to the data's robust range (2nd to 98th percentile)."),
-        default=False,
-    )
-    parser.add_argument(
-        "--nozero",
-        dest="nozero",
-        action="store_true",
-        help=("Do not include zero values in the histogram."),
-        default=False,
-    )
-    parser.add_argument(
-        "--nozerothresh",
-        dest="nozerothresh",
-        action="store",
-        type=lambda x: pf.is_float(parser, x),
-        metavar="THRESH",
-        help="Absolute values less than this are considered zero.  Default is 0.01.",
-        default=0.01,
-    )
-    parser.add_argument(
-        "--normhist",
-        dest="normhist",
-        action="store_true",
-        help=("Return a probability density instead of raw counts."),
+        help=("Make pretty plots."),
         default=False,
     )
     parser.add_argument(
@@ -108,56 +53,263 @@ def _get_parser():
     return parser
 
 
-def demo(args):
-    # set default variable values
-    thepercentiles = [0.2, 0.25, 0.5, 0.75, 0.98]
-    thepvalnames = []
-    for thispercentile in thepercentiles:
-        thepvalnames.append(str(1.0 - thispercentile).replace(".", "p"))
-    pcts_data = np.zeros((len(thepercentiles)), dtype="float")
+import copy
+import os
 
-    if args.debug:
-        print(args)
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import rapidtide.io as tide_io
+import rapidtide.miscmath as tide_math
+import rapidtide.refinedelay as tide_refinedelay
+import rapidtide.resample as tide_resample
+from rapidtide.filter import NoncausalFilter
+from rapidtide.tests.utils import get_examples_path, get_test_temp_path, mse
 
-    dummy, dummy, colnames, inputdata, compressed, filetype = dd_io.readvectorsfromtextfile(
-        args.inputfilename
+
+def eval_refinedelay(
+    sampletime=0.72,
+    tclengthinsecs=300.0,
+    mindelay=-5.0,
+    maxdelay=5.0,
+    numpoints=501,
+    smoothpts=3,
+    nativespaceshape=(10, 10, 10),
+    displayplots=False,
+    padtime=30.0,
+    noiselevel=0.0,
+    outputsuffix="",
+    debug=False,
+):
+    np.random.seed(12345)
+    tclen = int(tclengthinsecs // sampletime)
+
+    Fs = 1.0 / sampletime
+    print("Testing transfer function:")
+    lowestfreq = 1.0 / (sampletime * tclen)
+    nyquist = 0.5 / sampletime
+    print(
+        "    sampletime=",
+        sampletime,
+        ", timecourse length=",
+        tclengthinsecs,
+        "s,  possible frequency range:",
+        lowestfreq,
+        nyquist,
     )
 
-    inputdata = inputdata[0]
+    # make an sLFO timecourse
+    timeaxis = np.linspace(0.0, sampletime * tclen, num=tclen, endpoint=False)
+    rawgms = tide_math.stdnormalize(np.random.normal(size=tclen))
+    testfilter = NoncausalFilter(filtertype="lfo")
+    sLFO = tide_math.stdnormalize(testfilter.apply(Fs, rawgms))
+    if displayplots:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_title("Initial regressor")
+        plt.plot(timeaxis, rawgms)
+        plt.plot(timeaxis, sLFO)
+        plt.show()
 
-    if args.debug:
-        print(inputdata)
+    # now turn it into a lagtc generator
+    numpadtrs = int(padtime // sampletime)
+    padtime = sampletime * numpadtrs
+    lagtcgenerator = tide_resample.FastResampler(timeaxis, sLFO, padtime=padtime)
 
-    if args.nozero:
-        inputdata = inputdata[np.where(np.fabs(inputdata) > args.nozerothresh)]
+    # find the mapping of glm ratios to delays
+    tide_refinedelay.trainratiotooffset(
+        lagtcgenerator,
+        timeaxis,
+        os.path.join(get_test_temp_path(), "refinedelaytest" + outputsuffix),
+        "norm",
+        mindelay=mindelay,
+        maxdelay=maxdelay,
+        numpoints=numpoints,
+        smoothpts=smoothpts,
+        debug=debug,
+    )
 
-    if args.debug:
-        print(inputdata)
+    # make a delay map
+    numlags = nativespaceshape[0] * nativespaceshape[1] * nativespaceshape[2]
+    lagtimes = np.linspace(mindelay, maxdelay, numlags, endpoint=True)
+    if debug:
+        print("    lagtimes=", lagtimes)
 
-    pcts_data[:] = dd_stats.getfracvals(inputdata, thepercentiles)
-    for idx, thispercentile in enumerate(thepercentiles):
-        print(f"percentile {thispercentile} is {pcts_data[idx]}")
+    # now make synthetic fMRI data
+    internalvalidfmrishape = (numlags, tclen)
+    fmridata = np.zeros(internalvalidfmrishape, dtype=float)
+    fmrimask = np.ones(numlags, dtype=float)
+    validvoxels = np.where(fmrimask > 0)[0]
+    for i in range(numlags):
+        noisevec = tide_math.stdnormalize(
+            testfilter.apply(Fs, tide_math.stdnormalize(np.random.normal(size=tclen)))
+        )
+        fmridata[i, :] = lagtcgenerator.yfromx(timeaxis - lagtimes[i]) + noiselevel * noisevec
 
-    if args.robustrange:
-        histmin, histmax = dd_stats.getfracvals(inputdata, [0.02, 0.98])
-    else:
-        if args.minval is None:
-            histmin = np.min(inputdata)
-        else:
-            histmin = args.minval
-        if args.maxval is None:
-            histmax = np.max(inputdata)
-        else:
-            histmax = args.maxval
-    therange = (histmin, histmax)
-    print("the range is ", therange, flush=True)
+    """if displayplots:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_title("Timecourses")
+        for i in range(0, numlags, 200):
+            plt.plot(timeaxis, fmridata[i, :])
+        plt.show()"""
 
-    dd_stats.makeandsavehistogram(
-        inputdata,
-        args.histlen,
-        0,
-        args.outputroot,
-        therange=therange,
-        normalize=args.normhist,
-        debug=args.debug,
+    # make a fake header
+    nim, nim_data, nim_hdr, thedims, thesizes = tide_io.readfromnifti(
+        os.path.join(get_examples_path(), "sub-RAPIDTIDETEST_brainmask.nii.gz")
+    )
+    xdim, ydim, slicedim, fmritr = tide_io.parseniftisizes(thesizes)
+    theheader = copy.copy(nim_hdr)
+    theheader["dim"][0] = 3
+    theheader["dim"][1] = nativespaceshape[0]
+    theheader["dim"][2] = nativespaceshape[1]
+    theheader["dim"][3] = nativespaceshape[2]
+    theheader["pixdim"][1] = 1.0
+    theheader["pixdim"][2] = 1.0
+    theheader["pixdim"][3] = 1.0
+    theheader["pixdim"][4] = 1.0
+
+    rt_floattype = "float64"
+    rt_floatset = np.float64
+    glmmean = np.zeros(numlags, dtype=rt_floattype)
+    rvalue = np.zeros(numlags, dtype=rt_floattype)
+    r2value = np.zeros(numlags, dtype=rt_floattype)
+    fitNorm = np.zeros((numlags, 2), dtype=rt_floattype)
+    fitcoeff = np.zeros((numlags, 2), dtype=rt_floattype)
+    movingsignal = np.zeros(internalvalidfmrishape, dtype=rt_floattype)
+    lagtc = np.zeros(internalvalidfmrishape, dtype=rt_floattype)
+    filtereddata = np.zeros(internalvalidfmrishape, dtype=rt_floattype)
+    optiondict = {
+        "glmthreshval": 0.0,
+        "saveminimumglmfiles": False,
+        "nprocs_makelaggedtcs": 1,
+        "nprocs_glm": 1,
+        "mp_chunksize": 1000,
+        "showprogressbar": False,
+        "alwaysmultiproc": False,
+        "memprofile": False,
+        "focaldebug": debug,
+        "fmrifreq": Fs,
+        "textio": False,
+    }
+
+    glmderivratios = tide_refinedelay.getderivratios(
+        fmridata,
+        validvoxels,
+        timeaxis,
+        0.0 * lagtimes,
+        fmrimask,
+        lagtcgenerator,
+        "glm",
+        "refinedelaytest",
+        sampletime,
+        glmmean,
+        rvalue,
+        r2value,
+        fitNorm[:, :2],
+        fitcoeff[:, :2],
+        movingsignal,
+        lagtc,
+        filtereddata,
+        None,
+        None,
+        optiondict,
+        debug=debug,
+    )
+
+    medfilt, filteredglmderivratios, themad = tide_refinedelay.filterderivratios(
+        glmderivratios,
+        nativespaceshape,
+        validvoxels,
+        (xdim, ydim, slicedim),
+        patchthresh=3.0,
+        fileiscifti=False,
+        textio=False,
+        rt_floattype="float64",
+        debug=debug,
+    )
+
+    delayoffset = filteredglmderivratios * 0.0
+    for i in range(filteredglmderivratios.shape[0]):
+        delayoffset[i] = tide_refinedelay.ratiotodelay(filteredglmderivratios[i])
+
+    # do the tests
+    msethresh = 0.1
+    aethresh = 2
+    print(f"{mse(lagtimes, delayoffset)=}")
+    assert mse(lagtimes, delayoffset) < msethresh
+    # np.testing.assert_almost_equal(lagtimes, delayoffset, aethresh)
+
+    if displayplots:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_title("Lagtimes")
+        plt.plot(lagtimes)
+        plt.plot(delayoffset)
+        plt.legend(["Target", "Fit"])
+        plt.show()
+
+
+def demo(displayplots=False, debug=False):
+    for noiselevel in np.linspace(0.0, 0.5, num=5, endpoint=True):
+        eval_refinedelay(
+            sampletime=0.72,
+            tclengthinsecs=300.0,
+            mindelay=-3.0,
+            maxdelay=3.0,
+            numpoints=501,
+            smoothpts=9,
+            nativespaceshape=(10, 10, 10),
+            displayplots=displayplots,
+            outputsuffix="_1",
+            noiselevel=noiselevel,
+            debug=debug,
+        )
+    eval_refinedelay(
+        sampletime=0.72,
+        tclengthinsecs=300.0,
+        mindelay=-3.0,
+        maxdelay=3.0,
+        numpoints=501,
+        smoothpts=9,
+        nativespaceshape=(10, 10, 10),
+        displayplots=displayplots,
+        outputsuffix="_2",
+        debug=debug,
+    )
+    eval_refinedelay(
+        sampletime=0.72,
+        tclengthinsecs=300.0,
+        mindelay=-3.0,
+        maxdelay=3.0,
+        numpoints=501,
+        smoothpts=5,
+        nativespaceshape=(10, 10, 10),
+        displayplots=displayplots,
+        outputsuffix="_3",
+        debug=debug,
+    )
+    eval_refinedelay(
+        sampletime=1.5,
+        tclengthinsecs=300.0,
+        mindelay=-3.0,
+        maxdelay=3.0,
+        numpoints=501,
+        smoothpts=3,
+        nativespaceshape=(10, 10, 10),
+        displayplots=displayplots,
+        outputsuffix="_1p5_501_3",
+        debug=debug,
+    )
+    eval_refinedelay(
+        sampletime=3.0,
+        tclengthinsecs=300.0,
+        mindelay=-3.0,
+        maxdelay=3.0,
+        numpoints=501,
+        smoothpts=3,
+        nativespaceshape=(10, 10, 10),
+        displayplots=displayplots,
+        outputsuffix="_3p0_501_3",
+        debug=debug,
     )
