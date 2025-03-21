@@ -1,0 +1,442 @@
+# Python CircleCI 2.1 configuration file
+#
+# Check https://circleci.com/docs/2.1/language-python/ for more details
+#
+version: 2.1
+orbs:
+  codecov: codecov/codecov@3.2.4
+jobs:
+
+  build_py39:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    resource_class: medium
+    steps:
+      - checkout
+      - persist_to_workspace:
+          root: /tmp
+          paths:
+              - src/rapidtide
+      - restore_cache:  # ensure this step occurs *before* installing dependencies
+          key: deps2-39-{{ checksum "pyproject.toml" }}
+      - run:  # will overwrite rapidtide installation each time
+          name: Generate environment
+          command:  |
+            if [[ -e /opt/conda/envs/py39_env ]]; then
+                echo "Restoring environment from cache"
+                source activate py39_env
+            else
+                conda create -n py39_env python=3.9 -yq
+                source activate py39_env
+                pip install --upgrade "setuptools>=54"
+                pip install --upgrade pip
+                pip install --upgrade distlib
+                pip install .[tests,doc]
+            fi
+      - save_cache:  # environment cache tied to requirements
+          key: deps2-39-{{ checksum "pyproject.toml" }}
+          paths:
+            - "/opt/conda/envs/py39_env"
+
+  build_py310:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    resource_class: medium
+    steps:
+      - checkout
+      - persist_to_workspace:
+          root: /tmp
+          paths:
+              - src/rapidtide
+      - restore_cache:  # ensure this step occurs *before* installing dependencies
+          key: deps2-310-{{ checksum "pyproject.toml" }}
+      - run:  # will overwrite rapidtide installation each time
+          name: Generate environment
+          command:  |
+            if [[ -e /opt/conda/envs/py310_env ]]; then
+                echo "Restoring environment from cache"
+                source activate py310_env
+            else
+                conda create -n py310_env python=3.10 -yq
+                source activate py310_env
+                pip install --upgrade "setuptools>=54"
+                pip install --upgrade pip
+                pip install --upgrade distlib
+                pip install .[tests,doc]
+            fi
+      - save_cache:  # environment cache tied to requirements
+          key: deps2-310-{{ checksum "pyproject.toml" }}
+          paths:
+            - "/opt/conda/envs/py310_env"
+
+  build_py311:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    resource_class: medium
+    steps:
+      - checkout
+      - persist_to_workspace:
+          root: /tmp
+          paths:
+              - src/rapidtide
+      - restore_cache:  # ensure this step occurs *before* installing dependencies
+          key: deps2-311-{{ checksum "pyproject.toml" }}
+      - run:  # will overwrite rapidtide installation each time
+          name: Generate environment
+          command:  |
+            if [[ -e /opt/conda/envs/py311_env ]]; then
+                echo "Restoring environment from cache"
+                source activate py311_env
+            else
+                conda create -n py311_env python=3.11 -yq
+                source activate py311_env
+                pip install --upgrade "setuptools>=54"
+                pip install --upgrade pip
+                pip install --upgrade distlib
+                pip install .[tests,doc]
+            fi
+      - save_cache:  # environment cache tied to requirements
+          key: deps2-311-{{ checksum "pyproject.toml" }}
+          paths:
+            - "/opt/conda/envs/py311_env"
+
+  build_py311_with_optional:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    resource_class: medium
+    steps:
+      - checkout
+      - persist_to_workspace:
+          root: /tmp
+          paths:
+              - src/rapidtide
+      - restore_cache:  # ensure this step occurs *before* installing dependencies
+          key: deps2-311-{{ checksum "pyproject.toml" }}
+      - run:  # will overwrite rapidtide installation each time
+          name: Generate environment
+          command:  |
+            if [[ -e /opt/conda/envs/py311_env ]]; then
+                echo "Restoring environment from cache"
+                source activate py311_env
+            else
+                conda create -n py311_env python=3.11 -yq
+                source activate py311_env
+                pip install --upgrade "setuptools>=54"
+                pip install --upgrade pip
+                pip install --upgrade distlib
+                pip install .[tests,doc]
+            fi
+      - save_cache:  # environment cache tied to requirements
+          key: deps2-311-{{ checksum "pyproject.toml" }}
+          paths:
+            - "/opt/conda/envs/py311_env"
+
+  build_py312:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    resource_class: medium
+    steps:
+      - checkout
+      - persist_to_workspace:
+          root: /tmp
+          paths:
+              - src/rapidtide
+      - restore_cache:  # ensure this step occurs *before* installing dependencies
+          key: deps2-312-{{ checksum "pyproject.toml" }}
+      - run:  # will overwrite rapidtide installation each time
+          name: Generate environment
+          command:  |
+            if [[ -e /opt/conda/envs/py312_env ]]; then
+                echo "Restoring environment from cache"
+                source activate py312_env
+            else
+                conda create -n py312_env python=3.12 -yq
+                source activate py312_env
+                pip install --upgrade "setuptools>=54"
+                pip install --upgrade pip
+                pip install --upgrade distlib
+                pip install .[tests,doc]
+            fi
+      - save_cache:  # environment cache tied to requirements
+          key: deps2-312-{{ checksum "pyproject.toml" }}
+          paths:
+            - "/opt/conda/envs/py312_env"
+
+
+  test_py39:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    parallelism: 4
+    resource_class: large
+    steps:
+      - checkout
+      - attach_workspace:  # get rapidtide
+          at: /tmp
+      - restore_cache:  # load environment
+          key: deps2-39-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Run tests
+          command:  |
+            apt-get update
+            apt-get install -yqq curl gpg 
+            source activate py39_env
+            pip install --upgrade pytest
+            pwd
+            pushd rapidtide/data/examples/src
+            ./installtestdata
+            popd
+            cp -f .circleci/resources/pytest_build_config.ini pytest.ini
+            shopt -s globstar
+            TESTFILES=$(circleci tests glob rapidtide/tests/test*.py | circleci tests split --split-by=timings)
+            mkdir -p test-results
+            shopt -u globstar
+            pytest  \
+                $TESTFILES \
+                -W ignore \
+                --ignore=rapidtide/candidatetests \
+                --junitxml=test-results/junit.xml
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+
+  test_py310:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    parallelism: 4
+    resource_class: large
+    steps:
+      - checkout
+      - attach_workspace:  # get rapidtide
+          at: /tmp
+      - restore_cache:  # load environment
+          key: deps2-310-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Run tests
+          command:  |
+            apt-get update
+            apt-get install -yqq curl gpg 
+            source activate py310_env
+            pip install --upgrade pytest
+            pwd
+            pushd rapidtide/data/examples/src
+            ./installtestdata
+            popd
+            cp -f .circleci/resources/pytest_build_config.ini pytest.ini
+            shopt -s globstar
+            TESTFILES=$(circleci tests glob rapidtide/tests/test*.py | circleci tests split --split-by=timings)
+            mkdir -p test-results
+            shopt -u globstar
+            pytest  \
+                $TESTFILES \
+                --junitxml=test-results/junit.xml
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+
+
+  test_py311_with_optional:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    parallelism: 4
+    resource_class: large
+    steps:
+      - checkout
+      - attach_workspace:  # get rapidtide
+          at: /tmp
+      - restore_cache:  # load environment
+          key: deps2-311-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Run tests
+          command:  |
+            apt-get update
+            apt-get install -yqq curl gpg 
+            source activate py311_env
+            pip install --upgrade pytest
+            pwd
+            pip install --upgrade numba
+            pip install --upgrade pyfftw
+            pushd rapidtide/data/examples/src
+            ./installtestdata
+            popd
+            cp -f .circleci/resources/pytest_build_config.ini pytest.ini
+            shopt -s globstar
+            TESTFILES=$(circleci tests glob rapidtide/tests/test*.py | circleci tests split --split-by=timings)
+            mkdir -p test-results
+            shopt -u globstar
+            pytest \
+                $TESTFILES \
+                -W ignore \
+                --ignore=rapidtide/candidatetests \
+                --junitxml=test-results/junit.xml
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+
+
+  test_py311_with_coverage:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    parallelism: 6
+    resource_class: large
+    steps:
+      - checkout
+      - attach_workspace:  # get rapidtide
+          at: /tmp
+      - restore_cache:  # load environment
+          key: deps2-311-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Coverage
+          file: rapidtide/coverage.xml
+          command:  |
+            apt-get update
+            apt-get install -yqq curl gpg 
+            source activate py311_env
+            pip install --upgrade codecov coverage coveralls flake8-black pytest pytest-cov
+            pwd
+            pushd rapidtide/data/examples/src
+            ./installtestdata
+            popd
+            cp -f .circleci/resources/pytest_build_config.ini pytest.ini
+            shopt -s globstar
+            TESTFILES=$(circleci tests glob rapidtide/tests/test*.py | circleci tests split --split-by=timings)
+            mkdir -p test-results
+            shopt -u globstar
+            pytest \
+                $TESTFILES \
+                -W ignore \
+                --ignore=rapidtide/candidatetests \
+                --cov-report xml:rapidtide/coverage.xml \
+                --cov=rapidtide \
+                --cov-config=rapidtide/tests/.coveragerc \
+                --junitxml=rapidtide/tests/test-results/junit.xml
+      - codecov/upload:
+          file: rapidtide/coverage.xml
+      - store_artifacts:
+          path: rapidtide/coverage.xml
+          destination: artifact-file
+      - store_test_results:
+          path: rapidtide/tests/test-results
+      
+
+  test_py312:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    parallelism: 4
+    resource_class: large
+    steps:
+      - checkout
+      - attach_workspace:  # get rapidtide
+          at: /tmp
+      - restore_cache:  # load environment
+          key: deps2-312-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Run tests
+          command:  |
+            apt-get update
+            apt-get install -yqq curl gpg 
+            source activate py312_env
+            pip install --upgrade pytest
+            pwd
+            pushd rapidtide/data/examples/src
+            ./installtestdata
+            popd
+            cp -f .circleci/resources/pytest_build_config.ini pytest.ini
+            shopt -s globstar
+            TESTFILES=$(circleci tests glob rapidtide/tests/test*.py | circleci tests split --split-by=timings)
+            mkdir -p test-results
+            shopt -u globstar
+            pytest \
+                $TESTFILES \
+                -W ignore \
+                --ignore=rapidtide/candidatetests \
+                --junitxml=test-results/junit.xml
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+
+
+  build_docs:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    resource_class: small
+    steps:
+      - attach_workspace:  # get rapidtide
+          at: /tmp
+      - restore_cache:  # load environment
+          key: deps2-311-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Build documentation
+          command: |
+            apt-get update
+            apt-get install -yqq make
+            source activate py311_env
+            pip install .[doc]
+            pip uninstall -y pyqtgraph
+            pip install numpydoc
+            #pip install pyqt5-sip
+            make -C docs html
+      - store_artifacts:
+          path: /tmp/src/rapidtide/docs/_build/html
+
+  style_check:
+    working_directory: /tmp/src/rapidtide
+    docker:
+      - image: continuumio/miniconda3
+    resource_class: small
+    steps:
+      - attach_workspace:  # get rapidtide
+          at: /tmp
+      - restore_cache:  # load environment
+          key: deps2-311-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Linting
+          command:  |
+            source activate py311_env
+            flake8 --ignore=E127,E203,E231,E501,E722,E114,E116,F401,W503,W504 /tmp/src/rapidtide/rapidtide
+      - store_artifacts:
+          path: /tmp/data/lint
+
+workflows:
+  version: 2.1
+  run_tests:
+    jobs:
+      - build_py39
+      - test_py39:
+          requires:
+            - build_py39
+      - build_py310
+      - test_py310:
+          requires:
+            - build_py310
+      - build_py311
+      - test_py311_with_coverage:
+          requires:
+            - build_py311
+      - test_py311_with_optional:
+          requires:
+            - build_py311
+      - build_docs:
+          requires:
+            - build_py311
+      - build_py312
+      - test_py312:
+          requires:
+            - build_py312
+      #- style_check:
+      #    requires:
+      #      - build_py311

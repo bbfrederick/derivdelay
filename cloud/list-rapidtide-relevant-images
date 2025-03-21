@@ -1,0 +1,171 @@
+#!/usr/bin/env python
+
+# From NDA datastructure manifest, create a list of NDA S3 paths for resting state noise removal.
+
+import argparse
+import os
+import sys
+from pathlib import Path
+
+import pandas as pd
+from pyarrow.dataset import dataset
+
+
+# get the processed files from the ABCD dataset - this is the ABCC derivatives, package 1224084
+def get_ABCD_files(
+    participant,
+    session,
+    thetask,
+    manifest,
+):
+    df = pd.read_csv(manifest, sep="\t", dtype=str)
+    subjsess_key = f"{participant}_ses-{session}"
+    subjsess_df = df[df.associated_file.str.contains(subjsess_key)]
+    taskscans_df = subjsess_df[subjsess_df.associated_file.str.contains(f"task-{thetask}")]
+    search_patterns = [
+        "desc-confounds_timeseries.tsv",
+        "space-MNI152NLin2009cAsym_res-2",
+    ]
+    filestoget = []
+    for thissearch_pattern in search_patterns:
+        print(f"matching {thissearch_pattern}", file=sys.stderr)
+        pattern_match = taskscans_df["associated_file"].str.contains(thissearch_pattern)
+        filestoget.extend(taskscans_df.loc[pattern_match, "associated_file"].tolist())
+
+    return filestoget
+
+
+# get the files from the HCP Aging dataset
+def get_HCPA_files(
+    participant,
+    session,
+    manifest,
+):
+    df = pd.read_csv(manifest, sep="\t", dtype=str)
+
+    subjsess_key = f"{participant}_{session}_MR"
+    subjsess_df = df[df.associated_file.str.contains(subjsess_key)]
+
+    search_patterns = [
+        ["PreprocStrucRecommended", "MNINonLinear/brainmask_fs.2.nii.gz"],
+        ["PreprocStrucRecommended", "MNINonLinear/aparc[+]aseg.nii.gz"],
+        ["PreprocStrucRecommended", "MNINonLinear/T1w.nii.gz"],
+        ["PreprocStrucRecommended", "MNINonLinear/aparc.a2009s[+]aseg.nii.gz"],
+        ["PreprocStrucRecommended", "MNINonLinear/ROIs/ROIs.2.nii.gz"],
+        ["PreprocStrucRecommended", "MNINonLinear/T2w.nii.gz"],
+        [
+            "UnprocRfmri",
+            f"unprocessed/rfMRI_REST[12]_[AP][PA]/{participant}_{session}_MR_rfMRI_REST[12]_[AP][PA].nii.gz",
+        ],
+        [
+            "UnprocRfmri",
+            "unprocessed/rfMRI_REST[12]_[AP][PA]/LINKED_DATA/PHYSIO/Physio_combined",
+        ],
+        [
+            "UnprocRfmri",
+            f"unprocessed/rfMRI_REST[12]_[AP][PA]/{participant}_{session}_MR_rfMRI_REST[12]_[AP][PA].json",
+        ],
+        ["PreprocRfmriExtended", "MNINonLinear/xfms/standard2rfMRI_REST1_PA.nii.gz"],
+        [
+            "PreprocRfmriExtended",
+            "MNINonLinear/Results/rfMRI_REST[12]_PA/rfMRI_REST1_PA_mean.nii.gz",
+        ],
+        [
+            "PreprocRfmriUncleaned",
+            "MNINonLinear/Results/rfMRI_REST[12]_PA/Movement_Regressors.txt",
+        ],
+        [
+            "PreprocRfmriUncleaned",
+            "MNINonLinear/Results/rfMRI_REST[12]_PA/rfMRI_REST[12]_[AP][PA]_dropouts.nii.gz",
+        ],
+        [
+            "PreprocRfmriUncleaned",
+            "MNINonLinear/Results/rfMRI_REST[12]_PA/rfMRI_REST[12]_[AP][PA].nii.gz",
+        ],
+        [
+            "PreprocRfmriUncleaned",
+            "MNINonLinear/Results/rfMRI_REST[12]_[AP][PA]/Physio_combined",
+        ],
+        [
+            "PreprocRfmriUncleaned",
+            "MNINonLinear/Results/rfMRI_REST[12]_[AP][PA]/Movement_RelativeRMS_mean.txt",
+        ],
+        [
+            "PreprocRfmriUncleaned",
+            "MNINonLinear/Results/rfMRI_REST[12]_[AP][PA]/brainmask_fs.2.nii.gz",
+        ],
+        [
+            "PreprocRfmriLegacyVolume",
+            "MNINonLinear/Results/rfMRI_REST[12]_[AP][PA]/Movement_AbsoluteRMS.txt",
+        ],
+    ]
+    filestoget = []
+    for manifest_name, associated_pattern in search_patterns:
+        pattern_match = subjsess_df["associated_file"].str.contains(
+            associated_pattern
+        ) & subjsess_df["manifest_name"].str.contains(manifest_name)
+        filestoget.extend(subjsess_df.loc[pattern_match, "associated_file"].tolist())
+
+    return filestoget
+
+
+if __name__ == "__main__":
+    default_dataset = "HCPA"
+    default_task = "rest"
+
+    if "NDA_PACKAGE" in os.environ:
+        default_manifest_path = (
+            Path.home() / f"NDA/nda-tools/downloadcmd/packages/{os.environ['NDA_PACKAGE']}"
+        )
+    else:
+        default_manifest_path = "."
+
+    parser = argparse.ArgumentParser(
+        description="From NDA datastructure manifest, create a list of S3 paths for resting state noise removal."
+    )
+    parser.add_argument(
+        "--participant",
+        "-p",
+        default="HCA9953406",
+        help="Participant ID. (Default, for test: HCA9953406)",
+    )
+    parser.add_argument("--session", "-s", default="V1", help="Session. (Default: V1)")
+    parser.add_argument(
+        "--task", "-t", default=default_task, help=f"Task identifier (default is {default_task})."
+    )
+    parser.add_argument(
+        "--manifest",
+        "-m",
+        type=str,
+        default=str(default_manifest_path),
+        help=f"Path to datastructure_manifest.txt. (Default: {default_manifest_path})",
+    )
+    parser.add_argument(
+        "--dataset",
+        "-d",
+        action="store",
+        type=str,
+        choices=["HCPA", "ABCD"],
+        default=str(default_dataset),
+        help=f"Path to datastructure_manifest.txt. (Default: {default_dataset})",
+    )
+    args = parser.parse_args()
+
+    if args.dataset == "HCPA":
+        onesubjonesess = get_HCPA_files(
+            args.participant,
+            args.session,
+            Path(args.manifest) / "datastructure_manifest.txt",
+        )
+    elif args.dataset == "ABCD":
+        onesubjonesess = get_ABCD_files(
+            args.participant,
+            args.session,
+            args.task,
+            Path(args.manifest) / "datastructure_manifest.txt",
+        )
+    else:
+        print("Invalid dataset", file=sys.stderr)
+        sys.exit()
+
+    print("\n".join(onesubjonesess))

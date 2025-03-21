@@ -1,0 +1,23 @@
+#!/bin/bash
+
+conda create --name mic python==3.12
+conda activate mic
+mamba install \
+    numpy \
+    scipy \
+    matplotlib>=3.3.0 \
+    pandas \
+    pyarrow \
+    statsmodels \
+    scikit-learn \
+    scikit-image \
+    nibabel \
+    nilearn \
+    pyfftw \
+    pywavelets \
+    pyqt6 \
+    pyqt6-sip \
+    pyqtgraph>=0.13.4 \
+    tqdm
+
+mamba install tensorflow keras

@@ -1,0 +1,124 @@
+[build-system]
+requires = ['setuptools>=42', 'cffi>=1.0.0', 'versioneer[toml]==0.29']
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'derivdelay'
+description = 'A small package for implementing delay estimation from linear fit coefficients.'
+keywords = ['timeseries', 'delay', 'linear fitting']
+license = {text = 'Apache Software License'}
+readme = 'README.rst'
+classifiers = [
+    'Operating System :: OS Independent',
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Science/Research',
+    'Topic :: Scientific/Engineering :: Image Recognition',
+    'License :: OSI Approved :: Apache Software License',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+]
+requires-python = '>=3.9'
+dependencies = [
+  'numpy',
+  'versioneer',
+]
+dynamic = ["version"]
+authors = [
+    {name = 'Blaise deB. Frederick', email='blaise.frederick@gmail.com'},
+]
+
+[project.urls]
+'Homepage' = 'https://github.com/bbfrederick/derivdelay'
+'Bug Tracker' = 'https://github.com/bbfrederick/derivdelay/issues'
+'Repository' = 'https://github.com/bbfrederick/derivdelay.git'
+'Documentation' = 'https://derivdelay.readthedocs.io'
+'Changelog' = 'https://github.com/bbfrederick/derivdelay/blob/main/CHANGELOG.md'
+
+[project.optional-dependencies]
+tests = [
+  'codecov',
+  'coverage',
+  'coveralls',
+  'flake8-black',
+  'pytest',
+  'pytest-cov',
+]
+doc = [
+  'sphinx',
+  'sphinx_rtd_theme',
+  'sphinx-argparse',
+  'sphinx-gallery',
+  'myst-parser',
+  'numpydoc',
+  'sphinxcontrib-bibtex',
+  'tomlkit',
+]
+
+[project.scripts]
+demo = 'derivdelay.scripts.demo:entrypoint'
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ['derivdelay', 'cloud']
+
+[tool.setuptools.package-data]
+derivdelay = ['derivdelay/*.py', 'derivdelay/workflows/*.py', 'derivdelay/scripts/*']
+
+[tool.setuptools.dynamic]
+version = {attr = 'derivdelay.__version__'}
+
+[tool.setuptools.exclude-package-data]
+derivdelay = ['.eggs', '.git', '.github', '.pytest_cache', 'derivdelay/candidatetests', 'derivdelay/disabledtests', 'derivdelay/data/examples']
+
+# Aliases
+docs = ['derivdelay[doc]']
+tests = ['derivdelay[test]']
+all = ['derivdelay[docs,tests]']
+
+[tool.black]
+line-length = 99
+target-version = ['py39']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.github
+    | \.hg
+    | \.pytest_cache
+    | _build
+    | build
+    | dist
+  )/
+  | get_version.py
+  | versioneer.py
+  | derivdelay/_version.py
+  | derivdelay/candidatetests
+  | derivdelay/disabledtests
+  | derivdelay/data/examples
+)
+'''
+
+[tool.isort]
+profile = 'black'
+multi_line_output = 3
+
+[tool.versioneer]
+VCS = 'git'
+style = 'pep440'
+versionfile_source = 'derivdelay/_version.py'
+versionfile_build = 'derivdelay/_version.py'
+tag_prefix = 'v'
+parentdir_prefix = 'derivdelay-'
+
+[tool.codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+skip = '.git*,versioneer.py,*.css,exportlist.txt,data,*.bib'
+check-hidden = true
+ignore-regex = '\bsubjeT\b'
+ignore-words-list = 'TE,thex,normall'

@@ -1,0 +1,10 @@
+include VERSION
+include *.md *.rst 
+include derivdelay/*.py
+include derivdelay/scripts/*
+include derivdelay/workflows/*.py
+include derivdelay/data/examples/src/test*
+include derivdelay/data/examples/src/installtestdata
+recursive-include derivdelay/tests *
+include versioneer.py
+include derivdelay/_version.py
