@@ -14,33 +14,30 @@ changecalls
 safezone
 v2changes
 
-# experimental directory
-#rapidtide/experimental
-
 # any generated test data
-rapidtide/data/examples/dst/*
-rapidtide/tests/tmp/[0123456789abcdefghijklmnopqrstuvwxyz]*
-rapidtide/tests/*.jpg
-rapidtide/tests/*.json
-rapidtide/tests/*.tsv.gz
-rapidtide/tests/*.nii.gz
+derivdelay/data/examples/dst/*
+derivdelay/tests/tmp/[0123456789abcdefghijklmnopqrstuvwxyz]*
+derivdelay/tests/*.jpg
+derivdelay/tests/*.json
+derivdelay/tests/*.tsv.gz
+derivdelay/tests/*.nii.gz
 
 # some local test data
-rapidtide/data/examples/src/scratch
-rapidtide/data/examples/src/*.jpg
-rapidtide/data/examples/src/*.dat
-rapidtide/data/examples/src/tc1*
-rapidtide/data/examples/src/*corrfunc*
-rapidtide/data/examples/src/*trimmed*
-rapidtide/data/examples/src/sub-01*
-rapidtide/data/examples/src/testhappyx
-rapidtide/data/examples/src/filtereddata*
-rapidtide/data/examples/src/*.txt
-rapidtide/data/examples/src/*.par
-rapidtide/data/examples/src/*.json
-rapidtide/data/examples/src/*.nii.gz
-rapidtide/data/examples/src/*.nii
-rapidtide/data/examples/src/*.tsv.gz
+derivdelay/data/examples/src/scratch
+derivdelay/data/examples/src/*.jpg
+derivdelay/data/examples/src/*.dat
+derivdelay/data/examples/src/tc1*
+derivdelay/data/examples/src/*corrfunc*
+derivdelay/data/examples/src/*trimmed*
+derivdelay/data/examples/src/sub-01*
+derivdelay/data/examples/src/testhappyx
+derivdelay/data/examples/src/filtereddata*
+derivdelay/data/examples/src/*.txt
+derivdelay/data/examples/src/*.par
+derivdelay/data/examples/src/*.json
+derivdelay/data/examples/src/*.nii.gz
+derivdelay/data/examples/src/*.nii
+derivdelay/data/examples/src/*.tsv.gz
 *junk*
 
 # local executables
