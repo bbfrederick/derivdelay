@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# rapidtide documentation build configuration file, created by
+# derivdelay documentation build configuration file, created by
 # sphinx-quickstart on Thu Jun 16 15:27:19 2016.
 #
 # This file is execfile()d with the current directory set to its
@@ -23,7 +23,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.abspath(".."))
 sys.path.insert(0, os.path.abspath("."))
 sys.path.insert(0, os.path.abspath("sphinxext"))
-sys.path.insert(0, os.path.abspath("../rapidtide"))
+sys.path.insert(0, os.path.abspath("../derivdelay"))
 print(sys.path)
 
 import versioneer
@@ -32,9 +32,9 @@ current_dir = os.getcwd()
 os.chdir(os.path.dirname(versioneer.__file__))
 
 versioneer.VCS = "git"
-versioneer.versionfile_source = "../rapidtide/_version.py"
-versioneer.versionfile_build = "../rapidtide/_version.py"
-versioneer.tag_prefix = "rapidtide-"  # tags are like rapidtide-1.2.0
+versioneer.versionfile_source = "../derivdelay/_version.py"
+versioneer.versionfile_build = "../derivdelay/_version.py"
+versioneer.tag_prefix = "derivdelay-"  # tags are like derivdelay-1.2.0
 versioneer.parentdir_prefix = ".."
 
 __version = versioneer.get_version().replace(".dirty", "")
@@ -47,7 +47,7 @@ on_rtd = os.environ.get("READTHEDOCS", None) == "True"
 
 from github_link import make_linkcode_resolve
 
-import rapidtide
+import derivdelay
 
 # -- General configuration ------------------------------------------------
 
@@ -103,7 +103,7 @@ source_suffix = [".rst"]
 master_doc = "index"
 
 # General information about the project.
-project = "rapidtide"
+project = "derivdelay"
 copyright = "2016-" + datetime.today().strftime("%Y") + ", Blaise Frederick"
 author = "Blaise Frederick"
 
@@ -112,7 +112,7 @@ author = "Blaise Frederick"
 # built documents.
 #
 # The short X.Y version.
-import rapidtide.util as tide_util
+import derivdelay.util as tide_util
 
 version = tide_util.version()[0].replace("v", "").split("+")[0]
 # The full version, including alpha/beta/rc tags.
@@ -183,7 +183,7 @@ html_theme = "sphinx_rtd_theme"
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
-# html_title = 'rapidtide v0.1.0'
+# html_title = 'derivdelay v0.1.0'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 # html_short_title = None
@@ -271,7 +271,7 @@ def setup(app):
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "rapidtidedoc"
+htmlhelp_basename = "derivdelaydoc"
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -292,8 +292,8 @@ latex_elements = {
 latex_documents = [
     (
         master_doc,
-        "rapidtide.tex",
-        "rapidtide Documentation",
+        "derivdelay.tex",
+        "derivdelay Documentation",
         "Blaise Frederick",
         "manual",
     ),
@@ -324,7 +324,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "rapidtide", "rapidtide Documentation", [author], 1)]
+man_pages = [(master_doc, "derivdelay", "derivdelay Documentation", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -338,10 +338,10 @@ man_pages = [(master_doc, "rapidtide", "rapidtide Documentation", [author], 1)]
 texinfo_documents = [
     (
         master_doc,
-        "rapidtide",
-        "rapidtide Documentation",
+        "derivdelay",
+        "derivdelay Documentation",
         author,
-        "rapidtide",
+        "derivdelay",
         "One line description of project.",
         "Miscellaneous",
     ),
@@ -361,8 +361,8 @@ texinfo_documents = [
 
 # The following is used by sphinx.ext.linkcode to provide links to github
 linkcode_resolve = make_linkcode_resolve(
-    "rapidtide",
-    "https://github.com/bbfrederick/" "rapidtide/blob/{revision}/" "{package}/{path}#L{lineno}",
+    "derivdelay",
+    "https://github.com/bbfrederick/" "derivdelay/blob/{revision}/" "{package}/{path}#L{lineno}",
 )
 
 # -----------------------------------------------------------------------------
@@ -406,5 +406,5 @@ sphinx_gallery_conf = {
     "backreferences_dir": "_build/gen_modules/backreferences",
     # Modules for which function level galleries are created.  In
     # this case sphinx_gallery and numpy in a tuple of strings.
-    "doc_module": ("rapidtide"),
+    "doc_module": ("derivdelay"),
 }
