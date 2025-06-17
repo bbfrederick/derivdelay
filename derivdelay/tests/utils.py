@@ -17,7 +17,7 @@
 #
 #
 """
-Utility functions for testing rapidtide.
+Utility functions for testing derivdelay.
 """
 
 import os
@@ -25,9 +25,9 @@ import os
 import numpy as np
 
 
-def get_rapidtide_root():
+def get_derivdelay_root():
     """
-    Returns the path to the base rapidtide directory, terminated with separator.
+    Returns the path to the base derivdelay directory, terminated with separator.
     Based on function by Yaroslav Halchenko used in Neurosynth Python package.
     """
     thisdir, thisfile = os.path.split(os.path.join(os.path.realpath(__file__)))
@@ -40,7 +40,7 @@ def get_scripts_path():
     data are kept in tests folder in "testdata".
     Based on function by Yaroslav Halchenko used in Neurosynth Python package.
     """
-    return os.path.realpath(os.path.join(get_rapidtide_root(), "scripts")) + os.path.sep
+    return os.path.realpath(os.path.join(get_derivdelay_root(), "scripts")) + os.path.sep
 
 
 def get_test_data_path():
@@ -49,7 +49,7 @@ def get_test_data_path():
     data are kept in tests folder in "testdata".
     Based on function by Yaroslav Halchenko used in Neurosynth Python package.
     """
-    return os.path.realpath(os.path.join(get_rapidtide_root(), "tests", "testdata")) + os.path.sep
+    return os.path.realpath(os.path.join(get_derivdelay_root(), "tests", "testdata")) + os.path.sep
 
 
 def get_test_target_path():
@@ -59,7 +59,7 @@ def get_test_target_path():
     Based on function by Yaroslav Halchenko used in Neurosynth Python package.
     """
     return (
-        os.path.realpath(os.path.join(get_rapidtide_root(), "tests", "testtargets")) + os.path.sep
+        os.path.realpath(os.path.join(get_derivdelay_root(), "tests", "testtargets")) + os.path.sep
     )
 
 
@@ -68,7 +68,7 @@ def get_test_temp_path():
     Returns the path to test temporary directory, terminated with separator.
     Based on function by Yaroslav Halchenko used in Neurosynth Python package.
     """
-    return os.path.realpath(os.path.join(get_rapidtide_root(), "tests", "tmp")) + os.path.sep
+    return os.path.realpath(os.path.join(get_derivdelay_root(), "tests", "tmp")) + os.path.sep
 
 
 def get_examples_path():
@@ -78,7 +78,7 @@ def get_examples_path():
     Based on function by Yaroslav Halchenko used in Neurosynth Python package.
     """
     return (
-        os.path.realpath(os.path.join(get_rapidtide_root(), "data", "examples", "src"))
+        os.path.realpath(os.path.join(get_derivdelay_root(), "data", "examples", "src"))
         + os.path.sep
     )
 

@@ -130,7 +130,7 @@ def trainratiotooffset(
         fmridata[i, :] = lagtcgenerator.yfromx(timeaxis - lagtimes[i])
 
     rt_floattype = "float64"
-    glmmean = np.zeros(numpoints + 2 * edgepad, dtype=rt_floattype)
+    linfitmean = np.zeros(numpoints + 2 * edgepad, dtype=rt_floattype)
     rvalue = np.zeros(numpoints + 2 * edgepad, dtype=rt_floattype)
     r2value = np.zeros(numpoints + 2 * edgepad, dtype=rt_floattype)
     fitNorm = np.zeros((numpoints + 2 * edgepad, 2), dtype=rt_floattype)
@@ -140,10 +140,10 @@ def trainratiotooffset(
     filtereddata = np.zeros(internalvalidfmrishape, dtype=rt_floattype)
     sampletime = timeaxis[1] - timeaxis[0]
     optiondict = {
-        "glmthreshval": 0.0,
-        "saveminimumglmfiles": False,
+        "linfitthreshval": 0.0,
+        "saveminimumlinfitfiles": False,
         "nprocs_makelaggedtcs": 1,
-        "nprocs_glm": 1,
+        "nprocs_linfit": 1,
         "mp_chunksize": 1000,
         "showprogressbar": False,
         "alwaysmultiproc": False,
