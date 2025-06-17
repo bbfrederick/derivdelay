@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#   Copyright 2016-2024 Blaise Frederick
+#   Copyright 2016-2025 Blaise Frederick
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -17,17 +17,36 @@
 #
 #
 import sys
-
-# this is here until numpy deals with their fft issue
+import time
 import warnings
 
 import numpy as np
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    try:
+        import pyfftw
+    except ImportError:
+        pyfftwpresent = False
+    else:
+        pyfftwpresent = True
+
 import pylab as pl
 import scipy as sp
-from scipy import signal
+from scipy import fftpack, signal
 
 import derivdelay.filter as dd_filt
+import derivdelay.fit as dd_fit
 import derivdelay.io as dd_io
+import derivdelay.util as dd_util
+
+if pyfftwpresent:
+    fftpack = pyfftw.interfaces.scipy_fftpack
+    pyfftw.interfaces.cache.enable()
+
+
+# this is here until numpy deals with their fft issue
+import warnings
 
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 
@@ -132,6 +151,9 @@ class FastResampler:
             pl.plot(timeaxis, timecourse, self.hires_x, self.hires_y)
             pl.legend(("input", "hires"))
             pl.show()
+
+    def getdata(self):
+        return self.timeaxis, self.timecourse, self.hires_x, self.hires_y, 1.0 / self.initstep
 
     def info(self, prefix=""):
         print(f"{prefix}{self.timeaxis=}")
@@ -290,3 +312,399 @@ def doresample(
     else:
         print("invalid interpolation method")
         return None
+
+
+def arbresample(
+    inputdata,
+    init_freq,
+    final_freq,
+    intermed_freq=0.0,
+    method="univariate",
+    antialias=True,
+    decimate=False,
+    debug=False,
+):
+    """
+
+    Parameters
+    ----------
+    inputdata
+    init_freq
+    final_freq
+    intermed_freq
+    method
+    antialias
+    decimate
+    debug
+
+    Returns
+    -------
+
+    """
+    if debug:
+        print("arbresample - initial points:", len(inputdata))
+    if decimate:
+        if final_freq > init_freq:
+            # upsample only
+            upsampled = upsample(inputdata, init_freq, final_freq, method=method, debug=debug)
+            if debug:
+                print("arbresample - upsampled points:", len(upsampled))
+            return upsampled
+        elif final_freq < init_freq:
+            # downsampling, so upsample by an amount that allows integer decimation
+            intermed_freq = final_freq * np.ceil(init_freq / final_freq)
+            q = int(intermed_freq // final_freq)
+            if debug:
+                print(
+                    "going from",
+                    init_freq,
+                    "to",
+                    final_freq,
+                    ": upsampling to",
+                    intermed_freq,
+                    "Hz, then decimating by,",
+                    q,
+                )
+            if intermed_freq == init_freq:
+                upsampled = inputdata
+            else:
+                upsampled = upsample(
+                    inputdata, init_freq, intermed_freq, method=method, debug=debug
+                )
+            if debug:
+                print("arbresample - upsampled points:", len(upsampled))
+            if antialias:
+                downsampled = signal.decimate(upsampled, q)
+                if debug:
+                    print("arbresample - downsampled points:", len(downsampled))
+                return downsampled
+            else:
+                initaxis = np.linspace(0, len(upsampled), len(upsampled), endpoint=False)
+                print(len(initaxis), len(upsampled))
+                f = sp.interpolate.interp1d(initaxis, upsampled)
+                downsampled = f(
+                    q // 2
+                    + q * np.linspace(0, len(upsampled) // q, len(upsampled) // q, endpoint=False)
+                )
+                return downsampled
+        else:
+            if debug:
+                print("arbresample - final points:", len(inputdata))
+            return inputdata
+    else:
+        if intermed_freq <= 0.0:
+            intermed_freq = np.max([2.0 * init_freq, 2.0 * final_freq])
+        orig_x = (1.0 / init_freq) * np.linspace(
+            0.0, 1.0 * len(inputdata), len(inputdata), endpoint=False
+        )
+        resampled = dotwostepresample(
+            orig_x,
+            inputdata,
+            intermed_freq,
+            final_freq,
+            method=method,
+            antialias=antialias,
+            debug=debug,
+        )
+        if debug:
+            print("arbresample - resampled points:", len(resampled))
+        return resampled
+
+
+def upsample(inputdata, Fs_init, Fs_higher, method="univariate", intfac=False, debug=False):
+    starttime = time.time()
+    if Fs_higher <= Fs_init:
+        print("upsample: target frequency must be higher than initial frequency")
+        sys.exit()
+
+    # upsample
+    orig_x = np.linspace(0.0, (1.0 / Fs_init) * len(inputdata), num=len(inputdata), endpoint=False)
+    endpoint = orig_x[-1] - orig_x[0]
+    ts_higher = 1.0 / Fs_higher
+    numresamppts = int(endpoint // ts_higher + 1)
+    if intfac:
+        numresamppts = int(Fs_higher // Fs_init) * len(inputdata)
+    else:
+        numresamppts = int(endpoint // ts_higher + 1)
+    upsampled_x = np.arange(0.0, ts_higher * numresamppts, ts_higher)
+    upsampled_y = doresample(orig_x, inputdata, upsampled_x, method=method)
+    initfilter = dd_filt.NoncausalFilter(filtertype="arb", transferfunc="trapezoidal", debug=debug)
+    stopfreq = np.min([1.1 * Fs_init / 2.0, Fs_higher / 2.0])
+    initfilter.setfreqs(0.0, 0.0, Fs_init / 2.0, stopfreq)
+    upsampled_y = initfilter.apply(Fs_higher, upsampled_y)
+    if debug:
+        print("upsampling took", time.time() - starttime, "seconds")
+    return upsampled_y
+
+
+def dotwostepresample(
+    orig_x,
+    orig_y,
+    intermed_freq,
+    final_freq,
+    method="univariate",
+    antialias=True,
+    debug=False,
+):
+    """
+
+    Parameters
+    ----------
+    orig_x
+    orig_y
+    intermed_freq
+    final_freq
+    method
+    debug
+
+    Returns
+    -------
+    resampled_y
+
+    """
+    if intermed_freq <= final_freq:
+        print("intermediate frequency must be higher than final frequency")
+        sys.exit()
+
+    # upsample
+    starttime = time.time()
+    endpoint = orig_x[-1] - orig_x[0]
+    init_freq = len(orig_x) / endpoint
+    intermed_ts = 1.0 / intermed_freq
+    numresamppts = int(endpoint // intermed_ts + 1)
+    intermed_x = intermed_ts * np.linspace(0.0, 1.0 * numresamppts, numresamppts, endpoint=False)
+    intermed_y = doresample(orig_x, orig_y, intermed_x, method=method)
+    if debug:
+        print(
+            "init_freq, intermed_freq, final_freq:",
+            init_freq,
+            intermed_freq,
+            final_freq,
+        )
+        print("intermed_ts, numresamppts:", intermed_ts, numresamppts)
+        print("upsampling took", time.time() - starttime, "seconds")
+
+    # antialias and ringstop filter
+    if antialias:
+        starttime = time.time()
+        aafilterfreq = np.min([final_freq, init_freq]) / 2.0
+        aafilter = dd_filt.NoncausalFilter(
+            filtertype="arb", transferfunc="trapezoidal", debug=debug
+        )
+        aafilter.setfreqs(0.0, 0.0, 0.95 * aafilterfreq, aafilterfreq)
+        antialias_y = aafilter.apply(intermed_freq, intermed_y)
+        if debug:
+            print("antialiasing took", time.time() - starttime, "seconds")
+    else:
+        antialias_y = intermed_y
+
+    # downsample
+    starttime = time.time()
+    final_ts = 1.0 / final_freq
+    numresamppts = int(np.ceil(endpoint / final_ts))
+    # final_x = np.arange(0.0, final_ts * numresamppts, final_ts)
+    final_x = final_ts * np.linspace(0.0, 1.0 * numresamppts, numresamppts, endpoint=False)
+    resampled_y = doresample(intermed_x, antialias_y, final_x, method=method)
+    if debug:
+        print("downsampling took", time.time() - starttime, "seconds")
+    return resampled_y
+
+
+def calcsliceoffset(sotype, slicenum, numslices, tr, multiband=1):
+    """
+
+    Parameters
+    ----------
+    sotype
+    slicenum
+    numslices
+    tr
+    multiband
+
+    Returns
+    -------
+
+    """
+    # Slice timing correction
+    # 0 : None
+    # 1 : Regular up (0, 1, 2, 3, ...)
+    # 2 : Regular down
+    # 3 : Use slice order file
+    # 4 : Use slice timings file
+    # 5 : Standard Interleaved (0, 2, 4 ... 1, 3, 5 ... )
+    # 6 : Siemens Interleaved (0, 2, 4 ... 1, 3, 5 ... for odd number of slices)
+    # (1, 3, 5 ... 0, 2, 4 ... for even number of slices)
+    # 7 : Siemens Multiband Interleaved
+
+    # default value of zero
+    slicetime = 0.0
+
+    # None
+    if sotype == 0:
+        slicetime = 0.0
+
+    # Regular up
+    if type == 1:
+        slicetime = slicenum * (tr / numslices)
+
+    # Regular down
+    if sotype == 2:
+        slicetime = (numslices - slicenum - 1) * (tr / numslices)
+
+    # Slice order file not supported - do nothing
+    if sotype == 3:
+        slicetime = 0.0
+
+    # Slice timing file not supported - do nothing
+    if sotype == 4:
+        slicetime = 0.0
+
+    # Standard interleave
+    if sotype == 5:
+        if (slicenum % 2) == 0:
+            # even slice number
+            slicetime = (tr / numslices) * (slicenum / 2)
+        else:
+            # odd slice number
+            slicetime = (tr / numslices) * ((numslices + 1) / 2 + (slicenum - 1) / 2)
+
+    # Siemens interleave format
+    if sotype == 6:
+        if (numslices % 2) == 0:
+            # even number of slices - slices go 1,3,5,...,0,2,4,...
+            if (slicenum % 2) == 0:
+                # even slice number
+                slicetime = (tr / numslices) * (numslices / 2 + slicenum / 2)
+            else:
+                # odd slice number
+                slicetime = (tr / numslices) * ((slicenum - 1) / 2)
+        else:
+            # odd number of slices - slices go 0,2,4,...,1,3,5,...
+            if (slicenum % 2) == 0:
+                # even slice number
+                slicetime = (tr / numslices) * (slicenum / 2)
+            else:
+                # odd slice number
+                slicetime = (tr / numslices) * ((numslices + 1) / 2 + (slicenum - 1) / 2)
+
+    # Siemens multiband interleave format
+    if sotype == 7:
+        numberofshots = numslices / multiband
+        modslicenum = slicenum % numberofshots
+        if (numberofshots % 2) == 0:
+            # even number of shots - slices go 1,3,5,...,0,2,4,...
+            if (modslicenum % 2) == 0:
+                # even slice number
+                slicetime = (tr / numberofshots) * (numberofshots / 2 + modslicenum / 2)
+            else:
+                # odd slice number
+                slicetime = (tr / numberofshots) * ((modslicenum - 1) / 2)
+        else:
+            # odd number of slices - slices go 0,2,4,...,1,3,5,...
+            if (modslicenum % 2) == 0:
+                # even slice number
+                slicetime = (tr / numberofshots) * (modslicenum / 2)
+            else:
+                # odd slice number
+                slicetime = (tr / numberofshots) * (
+                    (numberofshots + 1) / 2 + (modslicenum - 1) / 2
+                )
+    return slicetime
+
+
+# NB: a positive value of shifttrs delays the signal, a negative value advances it
+# timeshift using fourier phase multiplication
+def timeshift(inputtc, shifttrs, padtrs, doplot=False, debug=False):
+    """
+
+    Parameters
+    ----------
+    inputtc
+    shifttrs
+    padtrs
+    doplot
+
+    Returns
+    -------
+
+    """
+    # set up useful parameters
+    thelen = np.shape(inputtc)[0]
+    thepaddedlen = thelen + 2 * padtrs
+    if debug:
+        print("timesshift: thelen, padtrs, thepaddedlen=", thelen, padtrs, thepaddedlen)
+    imag = 1.0j
+
+    # initialize variables
+    preshifted_y = np.zeros(
+        thepaddedlen, dtype="float"
+    )  # initialize the working buffer (with pad)
+    weights = np.zeros(thepaddedlen, dtype="float")  # initialize the weight buffer (with pad)
+
+    # now do the math
+    preshifted_y[padtrs : padtrs + thelen] = inputtc[:]  # copy initial data into shift buffer
+    weights[padtrs : padtrs + thelen] = 1.0  # put in the weight vector
+    revtc = inputtc[::-1]  # reflect data around ends to
+    preshifted_y[0:padtrs] = revtc[-padtrs:]  # eliminate discontinuities
+    preshifted_y[padtrs + thelen :] = revtc[0:padtrs]
+
+    # finish initializations
+    fftlen = np.shape(preshifted_y)[0]
+
+    # create the phase modulation timecourse
+    initargvec = np.arange(0.0, 2.0 * np.pi, 2.0 * np.pi / float(fftlen)) - np.pi
+    if len(initargvec) > fftlen:
+        initargvec = initargvec[:fftlen]
+    argvec = np.roll(initargvec * shifttrs, -int(fftlen // 2))
+    modvec = np.cos(argvec) - imag * np.sin(argvec)
+
+    # process the data (fft->modulate->ifft->filter)
+    fftdata = fftpack.fft(preshifted_y)  # do the actual shifting
+    shifted_y = fftpack.ifft(modvec * fftdata).real
+
+    # process the weights
+    w_fftdata = fftpack.fft(weights)  # do the actual shifting
+    shifted_weights = fftpack.ifft(modvec * w_fftdata).real
+
+    if doplot:
+        xvec = range(0, thepaddedlen)  # make a ramp vector (with pad)
+        print("shifttrs:", shifttrs)
+        print("offset:", padtrs)
+        print("thelen:", thelen)
+        print("thepaddedlen:", thepaddedlen)
+
+        fig = pl.figure()
+        ax = fig.add_subplot(111)
+        ax.set_title("Initial vector")
+        pl.plot(xvec, preshifted_y)
+
+        fig = pl.figure()
+        ax = fig.add_subplot(111)
+        ax.set_title("Initial and shifted vector")
+        pl.plot(xvec, preshifted_y, xvec, shifted_y)
+
+        pl.show()
+
+    return [
+        shifted_y[padtrs : padtrs + thelen],
+        shifted_weights[padtrs : padtrs + thelen],
+        shifted_y,
+        shifted_weights,
+    ]
+
+
+def timewarp(orig_x, orig_y, timeoffset, demean=True, method="univariate", debug=False):
+    if demean:
+        demeanedoffset = timeoffset - np.mean(timeoffset)
+        if debug:
+            print("mean delay of ", np.mean(timeoffset), "seconds removed prior to resampling")
+    else:
+        demeanedoffset = timeoffset
+    sampletime = orig_x[1] - orig_x[0]
+    maxdevs = (np.min(demeanedoffset), np.max(demeanedoffset))
+    maxsamps = maxdevs / sampletime
+    padlen = np.min([int(len(orig_x) // 2), int(30.0 / sampletime)])
+    if debug:
+        print("maximum deviation in samples:", maxsamps)
+        print("padlen in samples:", padlen)
+    return doresample(orig_x, orig_y, orig_x + demeanedoffset, method=method, padlen=padlen)

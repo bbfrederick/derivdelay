@@ -357,8 +357,7 @@ def filterderivratios(
     print(f"MAD of GLM derivative ratios = {themad}")
     outmaparray, internalspaceshape = dd_io.makedestarray(
         nativespaceshape,
-        textio=textio,
-        fileiscifti=fileiscifti,
+        filetype="nifti",
         rt_floattype=rt_floattype,
     )
     mappedderivcoffratios = dd_io.populatemap(

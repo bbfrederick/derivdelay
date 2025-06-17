@@ -36,17 +36,11 @@ when things actually work.  Probably should deal with that. Check back often for
 new features and bug fixes!
 
 
-Ok, I\'m sold. What\'s in here?
-===============================
-
--  **derivdelay** - Words go here
-
-
 Financial Support
 =================
 
 This code base is being developed and supported by grants from the US
-NIH (`1R01 NS097512 <http://grantome.com/grant/NIH/R01-NS097512-02>`__, RF1 MH130637-01)
+NIH (RF1 MH130637-01)
 
 
 .. |PyPi Latest Version| image:: https://img.shields.io/pypi/v/derivdelay.svg

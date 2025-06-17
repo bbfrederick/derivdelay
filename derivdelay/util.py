@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#   Copyright 2016-2024 Blaise Frederick
+#   Copyright 2016-2025 Blaise Frederick
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -47,13 +47,6 @@ donotbeaggressive = True
 
 # ----------------------------------------- Conditional imports ---------------------------------------
 try:
-    from memory_profiler import profile
-
-    memprofilerexists = True
-except ImportError:
-    memprofilerexists = False
-
-try:
     from numba import jit
 except ImportError:
     donotusenumba = True
@@ -69,12 +62,6 @@ else:
 
 
 def checkimports(optiondict):
-    if memprofilerexists:
-        print("memprofiler exists")
-    else:
-        print("memprofiler does not exist")
-    optiondict["memprofilerexists"] = memprofilerexists
-
     if pyfftwpresent:
         print("pfftw exists")
     else:
@@ -290,6 +277,20 @@ def isexecutable(command):
             os.access(os.path.join(path, command), os.X_OK)
             for path in os.environ["PATH"].split(os.pathsep)
         )
+
+
+def makeadir(pathname):
+    try:
+        os.makedirs(pathname)
+    except OSError:
+        if os.path.exists(pathname):
+            # We are nearly safe
+            return True
+        else:
+            # There was an error on creation, so make sure we know about it
+            print("ERROR: ", pathname, " does not exist, and could not create it")
+            return False
+    return True
 
 
 def findreferencedir():
@@ -836,228 +837,6 @@ def comparemap(map1, map2, mask=None, debug=False):
     relmse = np.mean(np.square(reldiff))
 
     return mindiff, maxdiff, meandiff, mse, minreldiff, maxreldiff, meanreldiff, relmse
-
-
-def comparederivdelayruns(root1, root2, debug=False):
-    results = {}
-    maskname1 = f"{root1}_desc-corrfit_mask.nii.gz"
-    (
-        masknim1,
-        maskdata1,
-        maskhdr1,
-        themaskdims1,
-        themasksizes1,
-    ) = dd_io.readfromnifti(maskname1)
-    maskname2 = f"{root2}_desc-corrfit_mask.nii.gz"
-    (
-        masknim2,
-        maskdata2,
-        maskhdr2,
-        themaskdims2,
-        themasksizes2,
-    ) = dd_io.readfromnifti(maskname2)
-
-    # compare maps
-    for map in [
-        "maxtime",
-        "maxcorr",
-        "maxwidth",
-        "MTT",
-        "mean",
-        "lfofilterCoeff",
-        "lfofilterMean",
-        "lfofilterNorm",
-        "lfofilterR",
-        "lfofilterR2",
-        "lfofilterInbandVarianceChange",
-    ]:
-        if debug:
-            print(f"checking map {map}")
-        filename1 = f"{root1}_desc-{map}_map.nii.gz"
-        filename2 = f"{root2}_desc-{map}_map.nii.gz"
-        if dd_io.checkspacematch(maskhdr1, maskhdr2):
-            mask = maskdata1 * maskdata2
-            if os.path.isfile(filename1) and os.path.isfile(filename2):
-                # files exist - read them in and process them
-                nim1, data1, hdr1, thedims1, thesizes1 = dd_io.readfromnifti(filename1)
-                nim2, data2, hdr2, thedims2, thesizes2 = dd_io.readfromnifti(filename2)
-                if dd_io.checkspacematch(hdr1, hdr2) and dd_io.checkspacematch(hdr1, maskhdr1):
-                    # files match in size
-                    results[map] = {}
-                    (
-                        results[map]["mindiff"],
-                        results[map]["maxdiff"],
-                        results[map]["meandiff"],
-                        results[map]["mse"],
-                        results[map]["relmindiff"],
-                        results[map]["relmaxdiff"],
-                        results[map]["relmeandiff"],
-                        results[map]["relmse"],
-                    ) = comparemap(data1, data2, mask=mask, debug=debug)
-                    if debug:
-                        print(results[map])
-                else:
-                    print("mask dimensions don't match - aborting")
-                    sys.exit()
-            else:
-                print("map", map, "does not exist - skipping")
-        else:
-            print("mask dimensions don't match - aborting")
-            sys.exit()
-    for timecourse in [
-        "initialmovingregressor_timeseries.json:prefilt",
-        "initialmovingregressor_timeseries.json:postfilt",
-        "oversampledmovingregressor_timeseries.json:pass1",
-        "oversampledmovingregressor_timeseries.json:pass2",
-        "oversampledmovingregressor_timeseries.json:pass3",
-        "oversampledmovingregressor_timeseries.json:pass4",
-    ]:
-        if debug:
-            print(f"checking timecourse {timecourse}")
-        filespec1 = f"{root1}_desc-{timecourse}"
-        filespec2 = f"{root2}_desc-{timecourse}"
-        allpresent = True
-        try:
-            dummy, dummy, dummy, timecourse1, dummy, dummy = dd_io.readvectorsfromtextfile(
-                filespec1, onecol=True
-            )
-        except FileNotFoundError:
-            if debug:
-                print(f"{filespec2} file not found")
-            allpresent = False
-        except ValueError:
-            if debug:
-                print(f"{filespec2} column not found")
-            allpresent = False
-
-        try:
-            dummy, dummy, dummy, timecourse2, dummy, dummy = dd_io.readvectorsfromtextfile(
-                filespec2, onecol=True
-            )
-        except FileNotFoundError:
-            if debug:
-                print(f"{filespec2} file not found")
-            allpresent = False
-        except ValueError:
-            if debug:
-                print(f"{filespec2} column not found")
-            allpresent = False
-
-        if allpresent:
-            tcname = timecourse.replace("_timeseries.json:", "_")
-            if len(timecourse1) == len(timecourse2):
-                results[tcname] = {}
-                (
-                    results[tcname]["mindiff"],
-                    results[tcname]["maxdiff"],
-                    results[tcname]["meandiff"],
-                    results[tcname]["mse"],
-                    results[tcname]["relmindiff"],
-                    results[tcname]["relmaxdiff"],
-                    results[tcname]["relmeandiff"],
-                    results[tcname]["relmse"],
-                ) = comparemap(timecourse1, timecourse2, debug=debug)
-                if debug:
-                    print(results[tcname])
-            else:
-                print("timecourse dimensions don't match - skipping")
-        else:
-            print(f"{timecourse} not present in both datasets - skipping")
-    return results
-
-
-def comparehappyruns(root1, root2, debug=False):
-    results = {}
-    if debug:
-        print("comparehappyruns rootnames:", root1, root2)
-    for map in ["app_info", "vessels_mask"]:
-        filename1 = f"{root1}_desc-{map}.nii.gz"
-        maskname1 = f"{root1}_processvoxels_mask.nii.gz"
-        filename2 = f"{root2}_desc-{map}.nii.gz"
-        maskname2 = f"{root2}_processvoxels_mask.nii.gz"
-        (
-            masknim1,
-            maskdata1,
-            maskhdr1,
-            themaskdims1,
-            themasksizes1,
-        ) = dd_io.readfromnifti(maskname1)
-        (
-            masknim2,
-            maskdata2,
-            maskhdr2,
-            themaskdims2,
-            themasksizes2,
-        ) = dd_io.readfromnifti(maskname2)
-        if dd_io.checkspacematch(maskhdr1, maskhdr2):
-            mask = maskdata1 * maskdata2
-            if os.path.isfile(filename1) and os.path.isfile(filename2):
-                # files exist - read them in and process them
-                if debug:
-                    print("comparing maps:")
-                    print("\t", filename1)
-                    print("\t", filename2)
-                nim1, data1, hdr1, thedims1, thesizes1 = dd_io.readfromnifti(filename1)
-                nim2, data2, hdr2, thedims2, thesizes2 = dd_io.readfromnifti(filename2)
-                if dd_io.checkspacematch(hdr1, hdr2) and dd_io.checkspacematch(hdr1, maskhdr1):
-                    # files match in size
-                    results[map] = {}
-                    (
-                        results[map]["mindiff"],
-                        results[map]["maxdiff"],
-                        results[map]["meandiff"],
-                        results[map]["mse"],
-                        results[map]["relmindiff"],
-                        results[map]["relmaxdiff"],
-                        results[map]["relmeandiff"],
-                        results[map]["relmse"],
-                    ) = comparemap(data1, data2, mask=mask, debug=debug)
-                else:
-                    print("mask dimensions don't match - aborting")
-                    sys.exit()
-            else:
-                print("map", map, "does not exist - skipping")
-        else:
-            print("mask dimensions don't match - aborting")
-            sys.exit()
-        if debug:
-            print("done processing", map)
-    for timecourse in [
-        "cardfromfmri_25.0Hz.txt",
-        "cardfromfmri_dlfiltered_25.0Hz.txt",
-        "cardfromfmrienv_25.0Hz.txt",
-    ]:
-        filename1 = root1 + "_" + timecourse
-        filename2 = root2 + "_" + timecourse
-        if os.path.isfile(filename1) and os.path.isfile(filename2):
-            if debug:
-                print("comparing timecourses:")
-                print("\t", filename1)
-                print("\t", filename2)
-            data1 = np.transpose(dd_io.readvecs(filename1))
-            data2 = np.transpose(dd_io.readvecs(filename2))
-            if len(data1) == len(data2):
-                # files match in size
-                results[timecourse] = {}
-                (
-                    results[timecourse]["mindiff"],
-                    results[timecourse]["maxdiff"],
-                    results[timecourse]["meandiff"],
-                    results[timecourse]["mse"],
-                    results[timecourse]["relmindiff"],
-                    results[timecourse]["relmaxdiff"],
-                    results[timecourse]["relmeandiff"],
-                    results[timecourse]["relmse"],
-                ) = comparemap(data1, data2, debug=debug)
-            else:
-                print("timecourse lengths don't match - aborting")
-                sys.exit()
-        else:
-            print("timecourse", timecourse, "does not exist - skipping")
-        if debug:
-            print("done processing", timecourse)
-
-    return results
 
 
 # shared memory routines

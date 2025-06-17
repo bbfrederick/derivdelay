@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#   Copyright 2016-2024 Blaise Frederick
+#   Copyright 2016-2025 Blaise Frederick
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -139,7 +139,7 @@ def parseniftidims(thedims):
     nx, ny, nz, nt : int
         Number of points along each dimension
     """
-    return thedims[1], thedims[2], thedims[3], thedims[4]
+    return int(thedims[1]), int(thedims[2]), int(thedims[3]), int(thedims[4])
 
 
 # sizes are the mapping between voxels and physical coordinates
@@ -263,32 +263,30 @@ def niftihdrfromarray(data):
 
 def makedestarray(
     destshape,
-    textio=False,
-    fileiscifti=False,
+    filetype="nifti",
     rt_floattype="float64",
 ):
-    if textio:
+    if filetype == "text":
         try:
             internalspaceshape = destshape[0]
             timedim = destshape[1]
         except TypeError:
             internalspaceshape = destshape
             timedim = None
-    else:
-        if fileiscifti:
-            spaceindex = len(destshape) - 1
-            timeindex = spaceindex - 1
-            internalspaceshape = destshape[spaceindex]
-            if destshape[timeindex] > 1:
-                timedim = destshape[timeindex]
-            else:
-                timedim = None
+    elif filetype == "cifti":
+        spaceindex = len(destshape) - 1
+        timeindex = spaceindex - 1
+        internalspaceshape = destshape[spaceindex]
+        if destshape[timeindex] > 1:
+            timedim = destshape[timeindex]
         else:
-            internalspaceshape = int(destshape[0]) * int(destshape[1]) * int(destshape[2])
-            if len(destshape) == 3:
-                timedim = None
-            else:
-                timedim = destshape[3]
+            timedim = None
+    else:
+        internalspaceshape = int(destshape[0]) * int(destshape[1]) * int(destshape[2])
+        if len(destshape) == 3:
+            timedim = None
+        else:
+            timedim = destshape[3]
     if timedim is None:
         outmaparray = np.zeros(internalspaceshape, dtype=rt_floattype)
     else:
@@ -329,8 +327,7 @@ def savemaplist(
     destshape,
     theheader,
     bidsbasedict,
-    textio=False,
-    fileiscifti=False,
+    filetype="nifti",
     rt_floattype="float64",
     cifti_hdr=None,
     savejson=True,
@@ -338,8 +335,7 @@ def savemaplist(
 ):
     outmaparray, internalspaceshape = makedestarray(
         destshape,
-        textio=textio,
-        fileiscifti=fileiscifti,
+        filetype=filetype,
         rt_floattype=rt_floattype,
     )
     for themap, mapsuffix, maptype, theunit, thedescription in maplist:
@@ -365,7 +361,7 @@ def savemaplist(
             bidsdict["Units"] = theunit
         if thedescription is not None:
             bidsdict["Description"] = thedescription
-        if textio:
+        if filetype == "text":
             writenpvecs(
                 outmaparray.reshape(destshape),
                 f"{outputname}_{mapsuffix}.txt",
@@ -374,7 +370,7 @@ def savemaplist(
             savename = f"{outputname}_desc-{mapsuffix}_{maptype}"
             if savejson:
                 writedicttojson(bidsdict, savename + ".json")
-            if not fileiscifti:
+            if filetype == "nifti":
                 savetonifti(outmaparray.reshape(destshape), theheader, savename)
             else:
                 isseries = len(outmaparray.shape) != 1
@@ -1426,8 +1422,12 @@ def writebidstsv(
     extraheaderinfo=None,
     compressed=True,
     columns=None,
+    xaxislabel="time",
+    yaxislabel="arbitrary value",
     starttime=0.0,
     append=False,
+    samplerate_tolerance=1e-6,
+    starttime_tolerance=1e-6,
     colsinjson=True,
     colsintsv=False,
     omitjson=False,
@@ -1447,6 +1447,8 @@ def writebidstsv(
     :param samplerate:
     :param compressed:
     :param columns:
+    :param xaxislabel:
+    :param yaxislabel:
     :param starttime:
     :param append:
     :param colsinjson:
@@ -1462,6 +1464,8 @@ def writebidstsv(
         print("\tsamplerate:", samplerate)
         print("\tcompressed:", compressed)
         print("\tcolumns:", columns)
+        print("\txaxislabel:", xaxislabel)
+        print("\tyaxislabel:", yaxislabel)
         print("\tstarttime:", starttime)
         print("\tappend:", append)
     if len(data.shape) == 1:
@@ -1496,8 +1500,8 @@ def writebidstsv(
                 )
             compressed = incompressed
             if (
-                (insamplerate == samplerate)
-                and (instarttime == starttime)
+                np.fabs(insamplerate - samplerate) < samplerate_tolerance
+                and np.fabs(instarttime - starttime) < starttime_tolerance
                 and reshapeddata.shape[1] == indata.shape[1]
             ):
                 startcol = len(incolumns)
@@ -1538,6 +1542,8 @@ def writebidstsv(
     headerdict = {}
     headerdict["SamplingFrequency"] = float(samplerate)
     headerdict["StartTime"] = float(starttime)
+    headerdict["XAxisLabel"] = xaxislabel
+    headerdict["YAxisLabel"] = yaxislabel
     if colsinjson:
         if startcol == 0:
             headerdict["Columns"] = columns
@@ -1934,7 +1940,12 @@ def parsefilespec(filespec, debug=False):
     if debug:
         print(f"PARSEFILESPEC: input string >>>{filespec}<<<")
         print(f"PARSEFILESPEC: platform is {platform.system()}")
-    if filespec[1] == ":" and platform.system() == "Windows":
+
+    specialcase = False
+    if len(inputlist) > 1:
+        if filespec[1] == ":" and platform.system() == "Windows":
+            specialcase = True
+    if specialcase:
         thefilename = ":".join([inputlist[0], inputlist[1]])
         if len(inputlist) == 3:
             thecolspec = inputlist[2]
@@ -1991,10 +2002,15 @@ def colspectolist(colspec, debug=False):
         ("APARC_SUBCORTGRAY", "8-13,17-20,26-28,47-56,58-60,96,97"),
         ("APARC_CORTGRAY", "1000-1035,2000-2035"),
         ("APARC_GRAY", "8-13,17-20,26-28,47-56,58-60,96,97,1000-1035,2000-2035"),
-        ("APARC_WHITE", "2,7,41,46,177,219"),
-        ("APARC_ALLBUTCSF", "2,7-13,17-20,26-28,41,46-56,58-60,96,97,177,219,1000-1035,2000-2035"),
+        ("APARC_WHITE", "2,7,41,46,177,219,3000-3035,4000-4035,5001,5002"),
+        ("APARC_CSF", "4,5,14,15,24,31,43,44,63,72"),
+        (
+            "APARC_ALLBUTCSF",
+            "2,7-13,17-20,26-28,41,46-56,58-60,96,97,177,219,1000-1035,2000-2035,3000-3035,4000-4035,5001,5002",
+        ),
         ("SSEG_GRAY", "3,8,10-13,16-18,26,42,47,49-54,58"),
         ("SSEG_WHITE", "2,7,41,46"),
+        ("SSEG_CSF", "4,5,14,15,24,43,44"),
     )
     preprocessedranges = []
     for thisrange in theranges:
