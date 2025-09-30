@@ -32,7 +32,7 @@ from scipy.stats import entropy, moment
 from sklearn.linear_model import LinearRegression
 from statsmodels.robust import mad
 
-import derivdelay.util as dd_util
+import rapidtide.util as dd_util
 
 # ---------------------------------------- Global constants -------------------------------------------
 defaultbutterorder = 6
@@ -254,16 +254,38 @@ def risetime_eval_loop(x, p):
 @conditionaljit()
 def trapezoid_eval(x, toplength, p):
     """
+    Evaluates the trapezoidal function at a given point.
+
+    The trapezoidal function is defined as:
+
+    f(x) = A * (1 - exp(-x / tau))
+
+    if 0 <= x < L
+
+    and
+
+    f(x) = A * exp(-(x - L) / gamma)
+
+    if x >= L
+
+    where A, tau, and gamma are parameters.
 
     Parameters
     ----------
-    x
-    toplength
-    p
-
+    x: float or array-like
+        The point  or vector at which to evaluate the trapezoidal function.
+    toplength: float
+        The length of the top plateau of the trapezoid.
+    p: list or tuple of floats
+        A list of four values [A, tau, gamma, L].
     Returns
     -------
+    float or array-like
+        The value of the trapezoidal function at x.
 
+    Notes
+    -----
+    This function is vectorized and can handle arrays of input points.
     """
     corrx = x - p[0]
     if corrx < 0.0:
@@ -277,15 +299,28 @@ def trapezoid_eval(x, toplength, p):
 @conditionaljit()
 def risetime_eval(x, p):
     """
+    Evaluates the rise time function at a given point.
+
+    The rise time function is defined as:
+
+    f(x) = A * (1 - exp(-x / tau))
+
+    where A and tau are parameters.
 
     Parameters
     ----------
-    x
-    p
-
+    x: float or array-like
+        The point at which to evaluate the rise time function.
+    p: list or tuple of floats
+        A list of two values [A, tau].
     Returns
     -------
+    float or array-like
+        The value of the rise time function at x.
 
+    Notes
+    -----
+    This function is vectorized and can handle arrays of input points.
     """
     corrx = x - p[0]
     if corrx < 0.0:
@@ -310,17 +345,39 @@ def gasboxcar(
 # generate the polynomial fit timecourse from the coefficients
 @conditionaljit()
 def trendgen(thexvals, thefitcoffs, demean):
-    """
+    """Generates a polynomial trend based on input x-values and coefficients.
+
+    This function constructs a polynomial trend using the provided x-values and
+    a set of polynomial coefficients. The order of the polynomial is determined
+    from the shape of the `thefitcoffs` array. Optionally, a constant term
+    (the highest order coefficient) can be included or excluded from the trend.
 
     Parameters
     ----------
-    thexvals
-    thefitcoffs
-    demean
+    thexvals : array_like
+        The x-values (independent variable) at which to evaluate the polynomial trend.
+        Expected to be a numpy array or similar.
+    thefitcoffs : array_like
+        A 1D array of polynomial coefficients. The length of this array minus one
+        determines the order of the polynomial. Coefficients are expected to be
+        ordered from the highest power of x down to the constant term (e.g.,
+        [a_n, a_n-1, ..., a_1, a_0] for a polynomial a_n*x^n + ... + a_0).
+    demean : bool
+        If True, the constant term (thefitcoffs[order]) is added to the generated
+        trend. If False, the constant term is excluded, effectively generating
+        a trend that is "demeaned" or centered around zero (assuming the constant
+        term represents the mean or offset).
 
     Returns
     -------
+    numpy.ndarray
+        A numpy array containing the calculated polynomial trend, with the same
+        shape as `thexvals`.
 
+    Notes
+    -----
+    This function implicitly assumes that `thexvals` is a numpy array or
+    behaves similarly for element-wise multiplication (`np.multiply`).
     """
     theshape = thefitcoffs.shape
     order = theshape[0] - 1
@@ -337,18 +394,34 @@ def trendgen(thexvals, thefitcoffs, demean):
 
 # @conditionaljit()
 def detrend(inputdata, order=1, demean=False):
-    """
+    """Estimates and removes a polynomial trend timecourse.
 
-    Parameters
-    ----------
-    inputdata
-    order
-    demean
+       This routine calculates a polynomial defined by a set of coefficients
+       at specified time points to create a trend timecourse, and subtracts it
+       from the input signal. Optionally, it can remove the mean of the input
+       data as well.
 
-    Returns
-    -------
+       Parameters
+       ----------
+       thetimepoints : numpy.ndarray
+           A 1D NumPy array of time points at which to evaluate the polynomial.
+       thecoffs : list or numpy.ndarray
+           A list or 1D NumPy array of polynomial coefficients, typically in
+           decreasing order of power (e.g., `[a, b, c]` for `ax^2 + bx + c`).
+       demean : bool
+           If True, the mean of the generated trend timecourse will be subtracted,
+           effectively centering the trend around zero.
 
-    """
+       Returns
+       -------
+       numpy.ndarray
+           A 1D NumPy array representing the generated polynomial trend timecourse.
+
+       Notes
+       -----
+       - This function utilizes `numpy.polyval` to evaluate the polynomial.
+       - Requires the `numpy` library.
+       """
     thetimepoints = np.arange(0.0, len(inputdata), 1.0) - len(inputdata) / 2.0
     try:
         thecoffs = Polynomial.fit(thetimepoints, inputdata, order).convert().coef[::-1]
@@ -361,15 +434,30 @@ def detrend(inputdata, order=1, demean=False):
 @conditionaljit()
 def findfirstabove(theyvals, thevalue):
     """
+    Find the index of the first element in an array that is greater than or equal to a specified value.
+
+    This function iterates through the input array `theyvals` and returns the index of the
+    first element that is greater than or equal to `thevalue`. If no such element exists,
+    it returns the length of the array.
 
     Parameters
     ----------
-    theyvals
-    thevalue
-
+    theyvals : array_like
+        A 1D array of numeric values to be searched.
+    thevalue : float or int
+        The threshold value to compare against elements in `theyvals`.
     Returns
     -------
+    int
+        The index of the first element in `theyvals` that is greater than or equal to `thevalue`.
+        If no such element exists, returns the length of `theyvals`.
 
+    Examples
+    --------
+    >>> findfirstabove([1, 2, 3, 4], 3)
+    2
+    >>> findfirstabove([1, 2, 3, 4], 5)
+    4
     """
     for i in range(0, len(theyvals)):
         if theyvals[i] >= thevalue:
@@ -393,26 +481,47 @@ def findtrapezoidfunc(
     displayplots=False,
 ):
     """
+    Find the best-fitting trapezoidal function parameters to a data set.
+
+    This function uses least-squares optimization to fit a trapezoidal function
+    defined by `trapezoid_eval` to the input data (`theyvals`), using `thexvals`
+    as the independent variable. The shape of the trapezoid is fixed by `thetoplength`.
 
     Parameters
     ----------
-    thexvals
-    theyvals
-    thetoplength
-    initguess
-    debug
-    minrise
-    maxrise
-    minfall
-    maxfall
-    minstart
-    maxstart
-    refine
-    displayplots
-
+    thexvals : array_like
+        Independent variable values (time points) for the data.
+    theyvals : array_like
+        Dependent variable values (signal intensity) corresponding to `thexvals`.
+    thetoplength : float
+        The length of the top plateau of the trapezoid function.
+    initguess : array_like, optional
+        Initial guess for [start, amplitude, risetime, falltime].
+        If None, uses defaults based on data statistics.
+    debug : bool, optional
+        If True, print intermediate values during computation (default: False).
+    minrise : float, optional
+        Minimum allowed rise time parameter (default: 0.0).
+    maxrise : float, optional
+        Maximum allowed rise time parameter (default: 200.0).
+    minfall : float, optional
+        Minimum allowed fall time parameter (default: 0.0).
+    maxfall : float, optional
+        Maximum allowed fall time parameter (default: 200.0).
+    minstart : float, optional
+        Minimum allowed start time parameter (default: -100.0).
+    maxstart : float, optional
+        Maximum allowed start time parameter (default: 100.0).
+    refine : bool, optional
+        If True, perform additional refinement steps (not implemented in this version).
+    displayplots : bool, optional
+        If True, display plots during computation (not implemented in this version).
     Returns
     -------
-
+    tuple of floats
+        The fitted parameters [start, amplitude, risetime, falltime] if successful,
+        or [0.0, 0.0, 0.0, 0.0] if the solution is outside the valid parameter bounds.
+        A fifth value (integer) indicating success (1) or failure (0).
     """
     # guess at parameters: risestart, riseamplitude, risetime
     if initguess is None:
@@ -505,18 +614,50 @@ def territorydecomp(
     inputmap, template, atlas, inputmask=None, intercept=True, fitorder=1, debug=False
 ):
     """
+    Decompose an input map into territories defined by an atlas using polynomial regression.
+
+    This function performs a decomposition of an input map (e.g., a brain image) into
+    distinct regions (territories) as defined by an atlas. For each territory, it fits
+    a polynomial model to the template values and the corresponding data in that region.
+    The resulting coefficients are used to project the model back onto the original map.
 
     Parameters
     ----------
-    inputmap
-    atlas
-    inputmask
-    fitorder
-    debug
-
+    inputmap : numpy.ndarray
+        Input data to be decomposed. Can be 3D or 4D (e.g., time series).
+    template : numpy.ndarray
+        Template values corresponding to the spatial locations in `inputmap`.
+        Should have the same shape as `inputmap` (or be broadcastable).
+    atlas : numpy.ndarray
+        Atlas defining the territories. Each unique integer value represents a distinct region.
+        Must have the same shape as `inputmap`.
+    inputmask : numpy.ndarray, optional
+        Mask to define valid voxels in `inputmap`. If None, all voxels are considered valid.
+        Should have the same shape as `inputmap`.
+    intercept : bool, optional
+        If True, include an intercept term in the polynomial fit (default: True).
+    fitorder : int, optional
+        The order of the polynomial to fit for each territory (default: 1).
+    debug : bool, optional
+        If True, print debugging information during computation (default: False).
     Returns
     -------
+    tuple of numpy.ndarray
+        A tuple containing:
+        - fitmap : numpy.ndarray
+            The decomposed map with fitted values projected back onto the original spatial locations.
+        - thecoffs : numpy.ndarray
+            Array of polynomial coefficients for each territory and map. Shape is (nummaps, numterritories, fitorder+1)
+            if `intercept` is True, or (nummaps, numterritories, fitorder) otherwise.
+        - theR2s : numpy.ndarray
+            R-squared values for the fits for each territory and map. Shape is (nummaps, numterritories).
 
+    Notes
+    -----
+    - The function assumes that `inputmap` and `template` are aligned in space.
+    - If `inputmask` is not provided, all voxels are considered valid.
+    - The number of territories is determined by the maximum value in `atlas`.
+    - For each territory, a polynomial regression is performed using the template values as predictors.
     """
     datadims = len(inputmap.shape)
     if datadims > 3:
@@ -684,6 +825,48 @@ def territorystats(
 
 @conditionaljit()
 def refinepeak_quad(x, y, peakindex, stride=1):
+    """
+    Refine the location and properties of a peak using quadratic interpolation.
+
+    This function takes a peak index and a set of data points to perform
+    quadratic interpolation around the peak to estimate its precise location,
+    value, and width. It also determines whether the point is a local maximum or minimum.
+
+    Parameters
+    ----------
+    x : array-like
+        Independent variable values (e.g., time points).
+    y : array-like
+        Dependent variable values (e.g., signal intensity) corresponding to `x`.
+    peakindex : int
+        Index of the peak in the arrays `x` and `y`.
+    stride : int, optional
+        Number of data points to use on either side of the peak for interpolation.
+        Default is 1.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - peakloc : float
+            The refined location of the peak.
+        - peakval : float
+            The refined value at the peak.
+        - peakwidth : float
+            The estimated width of the peak.
+        - ismax : bool or None
+            True if the point is a local maximum, False if it's a local minimum,
+            and None if the point cannot be determined (e.g., at boundaries).
+        - badfit : bool
+            True if the fit could not be performed due to invalid conditions,
+            such as being at the boundary or having equal values on both sides.
+
+    Notes
+    -----
+    The function uses a quadratic fit to estimate peak properties. It checks for
+    valid conditions before performing the fit, including ensuring that the peak
+    is not at the edge of the data and that it's either a local maximum or minimum.
+    """
     # first make sure this actually is a peak
     ismax = None
     badfit = False
@@ -737,32 +920,114 @@ def findmaxlag_gauss(
     displayplots=False,
 ):
     """
+    Find the maximum lag in a cross-correlation function by fitting a Gaussian curve to the peak.
+
+    This function locates the peak in a cross-correlation function and optionally fits a Gaussian
+    curve to determine the precise lag time, amplitude, and width. It includes extensive error
+    checking and validation to ensure robust results.
 
     Parameters
     ----------
-    thexcorr_x
-    thexcorr_y
-    lagmin
-    lagmax
-    widthmax
-    edgebufferfrac
-    threshval
-    uthreshval
-    debug
-    tweaklims
-    zerooutbadfit
-    refine
-    maxguess
-    useguess
-    searchfrac
-    fastgauss
-    lagmod
-    enforcethresh
-    displayplots
+    thexcorr_x : array_like
+        X-axis values (lag times) of the cross-correlation function.
+    thexcorr_y : array_like
+        Y-axis values (correlation coefficients) of the cross-correlation function.
+    lagmin : float
+        Minimum allowable lag value in seconds.
+    lagmax : float
+        Maximum allowable lag value in seconds.
+    widthmax : float
+        Maximum allowable width of the Gaussian peak in seconds.
+    edgebufferfrac : float, optional
+        Fraction of array length to exclude from each edge during search. Default is 0.0.
+    threshval : float, optional
+        Minimum correlation threshold for a valid peak. Default is 0.0.
+    uthreshval : float, optional
+        Upper threshold value (currently unused). Default is 30.0.
+    debug : bool, optional
+        Enable debug output showing initial vs final parameter values. Default is False.
+    tweaklims : bool, optional
+        Automatically adjust search limits to avoid edge artifacts. Default is True.
+    zerooutbadfit : bool, optional
+        Set output to zero when fit fails rather than using initial guess. Default is True.
+    refine : bool, optional
+        Perform least-squares refinement of the Gaussian fit. Default is False.
+    maxguess : float, optional
+        Initial guess for maximum lag position. Used when useguess=True. Default is 0.0.
+    useguess : bool, optional
+        Use the provided maxguess instead of finding peak automatically. Default is False.
+    searchfrac : float, optional
+        Fraction of peak height used to determine initial width estimate. Default is 0.5.
+    fastgauss : bool, optional
+        Use fast non-iterative Gaussian fitting (less accurate). Default is False.
+    lagmod : float, optional
+        Modulus for lag values to handle wraparound. Default is 1000.0.
+    enforcethresh : bool, optional
+        Enforce minimum threshold requirements. Default is True.
+    absmaxsigma : float, optional
+        Absolute maximum allowed sigma (width) value. Default is 1000.0.
+    absminsigma : float, optional
+        Absolute minimum allowed sigma (width) value. Default is 0.1.
+    displayplots : bool, optional
+        Show matplotlib plots of data and fitted curve. Default is False.
 
     Returns
     -------
+    maxindex : int
+        Array index of the maximum correlation value.
+    maxlag : numpy.float64
+        Time lag at maximum correlation in seconds.
+    maxval : numpy.float64
+        Maximum correlation coefficient value.
+    maxsigma : numpy.float64
+        Width (sigma) of the fitted Gaussian peak.
+    maskval : numpy.uint16
+        Validity mask (1 = valid fit, 0 = invalid fit).
+    failreason : numpy.uint16
+        Bitwise failure reason code. Possible values:
+        - 0x01: Correlation amplitude below threshold
+        - 0x02: Correlation amplitude above maximum (>1.0)
+        - 0x04: Search window too narrow (<3 points)
+        - 0x08: Fitted width exceeds widthmax
+        - 0x10: Fitted lag outside [lagmin, lagmax] range
+        - 0x20: Peak found at edge of search range
+        - 0x40: Fitting procedure failed
+        - 0x80: Initial parameter estimation failed
+    fitstart : int
+        Starting index used for fitting.
+    fitend : int
+        Ending index used for fitting.
 
+    Notes
+    -----
+    - The function assumes cross-correlation data where Y-values represent correlation
+      coefficients (typically in range [-1, 1]).
+    - When refine=False, uses simple peak-finding based on maximum value.
+    - When refine=True, performs least-squares Gaussian fit for sub-bin precision.
+    - All time-related parameters (lagmin, lagmax, widthmax) should be in the same
+      units as thexcorr_x.
+    - The fastgauss option provides faster but less accurate non-iterative fitting.
+
+    Examples
+    --------
+    Basic usage without refinement:
+
+    >>> maxindex, maxlag, maxval, maxsigma, maskval, failreason, fitstart, fitend = \\
+    ...     findmaxlag_gauss(lag_times, correlations, -10.0, 10.0, 5.0)
+    >>> if maskval == 1:
+    ...     print(f"Peak found at lag: {maxlag:.3f} s, correlation: {maxval:.3f}")
+
+    Advanced usage with refinement:
+
+    >>> maxindex, maxlag, maxval, maxsigma, maskval, failreason, fitstart, fitend = \\
+    ...     findmaxlag_gauss(lag_times, correlations, -5.0, 5.0, 2.0,
+    ...                      refine=True, threshval=0.1, displayplots=True)
+
+    Using an initial guess:
+
+    >>> maxindex, maxlag, maxval, maxsigma, maskval, failreason, fitstart, fitend = \\
+    ...     findmaxlag_gauss(lag_times, correlations, -10.0, 10.0, 3.0,
+    ...                      useguess=True, maxguess=2.5, refine=True)
     """
     # set initial parameters
     # widthmax is in seconds
@@ -782,7 +1047,7 @@ def findmaxlag_gauss(
     if tweaklims:
         lowerlim = 0
         upperlim = numlagbins - 1
-        while (thexcorr_y[lowerlim + 1] < thexcorr_y[lowerlim]) and (lowerlim + 1) < upperlim:
+        while (thexcorr_y[lowerlim + 1] < thexcorr_y[lowerlim]) and (lowerlim + 1) <= upperlim:
             lowerlim += 1
         while (thexcorr_y[upperlim - 1] < thexcorr_y[upperlim]) and (upperlim - 1) > lowerlim:
             upperlim -= 1
@@ -837,7 +1102,9 @@ def findmaxlag_gauss(
     if (maxindex - j < lowerlimit) or (j > searchbins):
         j -= 1
     # This is calculated from first principles, but it's always big by a factor or ~1.4.
-    #     Which makes me think I dropped a factor if sqrt(2).  So fix that with a final division
+    #     Which makes me think I dropped a factor if sqrt(2).  So fix that with a final division.
+    if searchfrac <= 0 or searchfrac >= 1:
+        raise ValueError("searchfrac must be between 0 and 1 (exclusive)")
     maxsigma_init = np.float64(
         ((i + j + 1) * binwidth / (2.0 * np.sqrt(-np.log(searchfrac)))) / np.sqrt(2.0)
     )
@@ -893,12 +1160,22 @@ def findmaxlag_gauss(
                 p0 = np.array([maxval_init, maxlag_init, maxsigma_init], dtype="float64")
 
                 if fitend - fitstart >= 3:
-                    plsq, dummy = sp.optimize.leastsq(
-                        gaussresiduals, p0, args=(data, X), maxfev=5000
-                    )
-                    maxval = plsq[0]
-                    maxlag = np.fmod((1.0 * plsq[1]), lagmod)
-                    maxsigma = plsq[2]
+                    try:
+                        plsq, ier = sp.optimize.leastsq(
+                            gaussresiduals, p0, args=(data, X), maxfev=5000
+                        )
+                        if ier not in [1, 2, 3, 4]:  # Check for successful convergence
+                            maxval = np.float64(0.0)
+                            maxlag = np.float64(0.0)
+                            maxsigma = np.float64(0.0)
+                        else:
+                            maxval = plsq[0]
+                            maxlag = np.fmod((1.0 * plsq[1]), lagmod)
+                            maxsigma = plsq[2]
+                    except:
+                        maxval = np.float64(0.0)
+                        maxlag = np.float64(0.0)
+                        maxsigma = np.float64(0.0)
                 # if maxval > 1.0, fit failed catastrophically, zero out or reset to initial value
                 #     corrected logic for 1.1.6
                 if (np.fabs(maxval)) > 1.0 or (lagmin > maxlag) or (maxlag > lagmax):
@@ -906,7 +1183,7 @@ def findmaxlag_gauss(
                         maxval = np.float64(0.0)
                         maxlag = np.float64(0.0)
                         maxsigma = np.float64(0.0)
-                        maskval = np.int16(0)
+                        maskval = np.uint16(0)
                     else:
                         maxval = np.float64(maxval_init)
                         maxlag = np.float64(maxlag_init)
@@ -916,7 +1193,7 @@ def findmaxlag_gauss(
                         maxval = np.float64(0.0)
                         maxlag = np.float64(0.0)
                         maxsigma = np.float64(0.0)
-                        maskval = np.int16(0)
+                        maskval = np.uint16(0)
                     else:
                         if maxsigma > absmaxsigma:
                             maxsigma = absmaxsigma
@@ -1053,20 +1330,43 @@ def sincfit(height, loc, width, baseline, xvals, yvals):
 
 
 def gaussfit(height, loc, width, xvals, yvals):
-    """
+    """Performs a non-linear least squares fit of a Gaussian function to data.
 
-    Parameters
-    ----------
-    height
-    loc
-    width
-    xvals
-    yvals
+       This routine uses `scipy.optimize.leastsq` to find the optimal parameters
+       (height, location, and width) that best describe a Gaussian curve fitted
+       to the provided `yvals` data against `xvals`. It requires an external
+       `gaussresiduals` function to compute the residuals.
 
-    Returns
-    -------
+       Parameters
+       ----------
+       height : float
+           Initial guess for the amplitude or peak height of the Gaussian.
+       loc : float
+           Initial guess for the mean (center) of the Gaussian.
+       width : float
+           Initial guess for the standard deviation (width) of the Gaussian.
+       xvals : numpy.ndarray or list
+           The independent variable data points.
+       yvals : numpy.ndarray or list
+           The dependent variable data points to which the Gaussian will be fitted.
 
-    """
+       Returns
+       -------
+       tuple
+           A tuple containing the fitted parameters:
+           - float: The fitted height of the Gaussian.
+           - float: The fitted location (mean) of the Gaussian.
+           - float: The fitted width (standard deviation) of the Gaussian.
+
+       Notes
+       -----
+       - This function relies on an external function `gaussresiduals(params, y, x)`
+         which should calculate the difference between the observed `y` values and
+         the Gaussian function evaluated at `x` with the given `params` (height, loc, width).
+       - `scipy.optimize.leastsq` is used for the optimization, which requires
+         `scipy` and `numpy` to be imported (e.g., `import scipy.optimize as sp`
+         and `import numpy as np`).
+       """
     plsq, dummy = sp.optimize.leastsq(
         gaussresiduals, np.array([height, loc, width]), args=(yvals, xvals), maxfev=5000
     )
@@ -1074,6 +1374,32 @@ def gaussfit(height, loc, width, xvals, yvals):
 
 
 def gram_schmidt(theregressors, debug=False):
+    r"""Performs Gram-Schmidt orthogonalization on a set of vectors.
+
+    This routine takes a set of input vectors (rows of a 2D array) and
+    transforms them into an orthonormal basis using the Gram-Schmidt process.
+    It ensures that the resulting vectors are mutually orthogonal and
+    have a unit norm. Linearly dependent vectors are effectively skipped
+    if their orthogonal component is negligible.
+
+    Args:
+        theregressors (numpy.ndarray): A 2D NumPy array where each row
+            represents a vector to be orthogonalized.
+        debug (bool, optional): If True, prints debug information about
+            input and output dimensions. Defaults to False.
+
+    Returns:
+        numpy.ndarray: A 2D NumPy array representing the orthonormal basis.
+            Each row is an orthonormal vector. The number of rows may be
+            less than the input if some vectors were linearly dependent.
+
+    Notes:
+        - The function normalizes each orthogonalized vector to unit length.
+        - A small tolerance (1e-10) is used to check if a vector's orthogonal
+          component is effectively zero, indicating linear dependence.
+        - Requires the `numpy` library for array operations and linear algebra.
+    """
+
     if debug:
         print("gram_schmidt, input dimensions:", theregressors.shape)
     basis = []
@@ -1088,6 +1414,37 @@ def gram_schmidt(theregressors, debug=False):
 
 
 def mlproject(thefit, theevs, intercept):
+    r"""Calculates a linear combination (weighted sum) of explanatory variables.
+
+    This routine computes a predicted output by multiplying a set of
+    explanatory variables by corresponding coefficients and summing the results.
+    It can optionally include an intercept term. This is a common operation
+    in linear regression and other statistical models.
+
+    Args:
+        thefit (numpy.ndarray or list): A 1D array or list of coefficients
+            (weights) to be applied to the explanatory variables. If `intercept`
+            is True, the first element of `thefit` is treated as the intercept.
+        theevs (list of numpy.ndarray): A list where each element is a 1D NumPy
+            array representing an explanatory variable (feature time series).
+            The length of `theevs` should match the number of non-intercept
+            coefficients in `thefit`.
+        intercept (bool): If True, the first element of `thefit` is used as
+            an intercept term, and the remaining elements of `thefit` are
+            applied to `theevs`. If False, no intercept is added, and all
+            elements of `thefit` are applied to `theevs` starting from the
+            first element.
+
+    Returns:
+        numpy.ndarray: A 1D NumPy array representing the calculated linear
+        combination. Its length will be the same as the explanatory variables.
+
+    Notes:
+        The calculation performed is conceptually equivalent to:
+        `output = intercept_term + (coefficient_1 * ev_1) + (coefficient_2 * ev_2) + ...`
+        where `intercept_term` is `thefit[0]` if `intercept` is True, otherwise 0.
+    """
+
     thedest = theevs[0] * 0.0
     if intercept:
         thedest[:] = thefit[0]
@@ -1187,18 +1544,49 @@ def mlregress(X, y, intercept=True, debug=False):
 def calcexpandedregressors(
     confounddict, labels=None, start=0, end=-1, deriv=True, order=1, debug=False
 ):
-    r"""Calculates various motion related timecourses from motion data dict, and returns an array
+    r"""Calculates expanded regressors from a dictionary of confound vectors.
 
-    Parameters
-    ----------
-    confounddict: dict
-        A dictionary of the confound vectors
+    This routine generates a comprehensive set of motion-related regressors by
+    including higher-order polynomial terms and derivatives of the original
+    confound timecourses. It is commonly used in neuroimaging analysis to
+    account for subject movement.
 
-    Returns
-    -------
-    motionregressors: array
-        All the derivative timecourses to use in a numpy array
+    Args:
+        confounddict (dict): A dictionary where keys are labels (e.g., 'rot_x',
+            'trans_y') and values are the corresponding 1D time series (NumPy
+            arrays or lists).
+        labels (list, optional): A list of specific confound labels from
+            `confounddict` to process. If None, all labels in `confounddict`
+            will be used. Defaults to None.
+        start (int, optional): The starting index (inclusive) for slicing the
+            timecourses. Defaults to 0.
+        end (int, optional): The ending index (exclusive) for slicing the
+            timecourses. If None, slicing continues to the end of the timecourse.
+            Defaults to None.
+        deriv (bool, optional): If True, the first derivative of each selected
+            timecourse (and its polynomial expansions) is calculated and
+            included as a regressor. Defaults to False.
+        order (int, optional): The polynomial order for expansion. If `order > 1`,
+            terms like `label^2`, `label^3`, up to `label^order` will be
+            included. Defaults to 1 (no polynomial expansion).
+        debug (bool, optional): If True, prints debug information during
+            processing. Defaults to False.
 
+    Returns:
+        tuple: A tuple containing:
+            - outputregressors (numpy.ndarray): A 2D NumPy array where each row
+              represents a generated regressor (original, polynomial, or derivative)
+              and columns represent time points.
+            - outlabels (list): A list of strings, providing the labels for each
+              row in `outputregressors`, indicating what each regressor represents
+              (e.g., 'rot_x', 'rot_x^2', 'rot_x_deriv').
+
+    Notes:
+        - The derivatives are calculated using `numpy.gradient`.
+        - The function handles slicing of the timecourses based on `start` and `end`
+          parameters.
+        - The output regressors are concatenated horizontally to form the final
+          `outputregressors` array.
     """
     if labels is None:
         localconfounddict = confounddict.copy()
@@ -1469,11 +1857,11 @@ def getpeaks(xvals, yvals, xrange=None, bipolar=False, displayplots=False):
         peaks = np.concatenate((peaks, negpeaks))
     procpeaks = []
     if xrange is None:
-        lagmin = xvals[0]
-        lagmax = xvals[-1]
+        lagmin = xvals[0] + 0.0
+        lagmax = xvals[-1] + 0.0
     else:
-        lagmin = xrange[0]
-        lagmax = xrange[1]
+        lagmin = xrange[0] + 0.0
+        lagmax = xrange[1] + 0.0
     originloc = dd_util.valtoindex(xvals, 0.0, discrete=False)
     for thepeak in peaks:
         if lagmin <= xvals[thepeak] <= lagmax:
@@ -2051,10 +2439,15 @@ def simfuncpeakfit(
             if debug:
                 print("fit input array:", p0)
             try:
-                plsq, dummy = sp.optimize.leastsq(gaussresiduals, p0, args=(data, X), maxfev=5000)
-                maxval = plsq[0] + baseline
-                maxlag = np.fmod((1.0 * plsq[1]), lagmod)
-                maxsigma = plsq[2]
+                plsq, ier = sp.optimize.leastsq(gaussresiduals, p0, args=(data, X), maxfev=5000)
+                if ier not in [1, 2, 3, 4]:  # Check for successful convergence
+                    maxval = np.float64(0.0)
+                    maxlag = np.float64(0.0)
+                    maxsigma = np.float64(0.0)
+                else:
+                    maxval = plsq[0] + baseline
+                    maxlag = np.fmod((1.0 * plsq[1]), lagmod)
+                    maxsigma = plsq[2]
             except:
                 maxval = np.float64(0.0)
                 maxlag = np.float64(0.0)
