@@ -16,4 +16,4 @@ cleandirs
 pip install .
 
 # remove the build directory
-rm -rf rapidtide.egg-info build
+rm -rf derivdelay.egg-info build

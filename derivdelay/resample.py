@@ -411,7 +411,9 @@ def arbresample(
         return resampled
 
 
-def upsample(inputdata, Fs_init, Fs_higher, method="univariate", intfac=False, dofilt=True, debug=False):
+def upsample(
+    inputdata, Fs_init, Fs_higher, method="univariate", intfac=False, dofilt=True, debug=False
+):
     starttime = time.time()
     if Fs_higher <= Fs_init:
         print("upsample: target frequency must be higher than initial frequency")
@@ -428,7 +430,9 @@ def upsample(inputdata, Fs_init, Fs_higher, method="univariate", intfac=False, d
     upsampled_x = np.arange(0.0, ts_higher * numresamppts, ts_higher)
     upsampled_y = doresample(orig_x, inputdata, upsampled_x, method=method)
     if dofilt:
-        initfilter = dd_filt.NoncausalFilter(filtertype="arb", transferfunc="trapezoidal", debug=debug)
+        initfilter = dd_filt.NoncausalFilter(
+            filtertype="arb", transferfunc="trapezoidal", debug=debug
+        )
         stopfreq = np.min([1.1 * Fs_init / 2.0, Fs_higher / 2.0])
         initfilter.setfreqs(0.0, 0.0, Fs_init / 2.0, stopfreq)
         upsampled_y = initfilter.apply(Fs_higher, upsampled_y)

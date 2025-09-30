@@ -113,9 +113,7 @@ def polarfft(invec, samplerate):
         thevec = invec[:-1]
     else:
         thevec = invec
-    spec = fftpack.fft(dd_filt.hamming(np.shape(thevec)[0]) * thevec)[
-        0 : np.shape(thevec)[0] // 2
-    ]
+    spec = fftpack.fft(dd_filt.hamming(np.shape(thevec)[0]) * thevec)[0 : np.shape(thevec)[0] // 2]
     magspec = abs(spec)
     phspec = phase(spec)
     maxfreq = samplerate / 2.0
