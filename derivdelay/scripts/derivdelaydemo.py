@@ -16,12 +16,12 @@
 #   limitations under the License.
 #
 #
-import derivdelay.workflows.demo as theworkflow
+import derivdelay.workflows.derivdelaydemo as theworkflow
 import derivdelay.workflows.parser_funcs as pf
 
 
 def entrypoint():
-    pf.generic_init(theworkflow._get_parser, theworkflow.demo)
+    pf.generic_init(theworkflow._get_parser, theworkflow.derivdelaydemo)
 
 
 if __name__ == "__main__":

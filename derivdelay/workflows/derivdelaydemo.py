@@ -36,10 +36,10 @@ from derivdelay.tests.utils import mse
 
 def _get_parser():
     """
-    Argument parser for demo
+    Argument parser for derivdelaydemo
     """
     parser = argparse.ArgumentParser(
-        prog="demo",
+        prog="derivdelaydemo",
         description=("Generate a histogram of the values in a timecourse"),
         allow_abbrev=False,
     )
@@ -199,7 +199,7 @@ def eval_refinedelay(
         plt.show()
 
 
-def demo(displayplots=False, debug=False):
+def derivdelaydemo(displayplots=False, debug=False):
     for noiselevel in np.linspace(0.0, 0.5, num=5, endpoint=True):
         eval_refinedelay(
             sampletime=0.72,

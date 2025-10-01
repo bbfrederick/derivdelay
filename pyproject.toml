@@ -57,7 +57,7 @@ doc = [
 ]
 
 [project.scripts]
-demo = 'derivdelay.scripts.demo:entrypoint'
+derivdelaydemo = 'derivdelay.scripts.derivdelaydemo:entrypoint'
 
 [tool.setuptools]
 include-package-data = true
