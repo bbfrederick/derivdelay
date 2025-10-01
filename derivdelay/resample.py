@@ -35,10 +35,8 @@ import pylab as pl
 import scipy as sp
 from scipy import fftpack, signal
 
-import derivdelay.filter as dd_filt
-import derivdelay.fit as dd_fit
-import derivdelay.io as dd_io
-import derivdelay.util as dd_util
+from derivdelay.io import writebidstsv, readbidstsv
+from derivdelay.filter import padvec, NoncausalFilter
 
 if pyfftwpresent:
     fftpack = pyfftw.interfaces.scipy_fftpack
@@ -173,7 +171,7 @@ class FastResampler:
         print(f"{prefix}{self.hires_y[-1]=}")
 
     def save(self, outputname):
-        dd_io.writebidstsv(
+        writebidstsv(
             outputname,
             self.timecourse,
             1.0 / self.initstep,
@@ -223,7 +221,7 @@ def FastResamplerFromFile(inputname, colspec=None, debug=False, **kwargs):
         indata,
         incompressed,
         incolsource,
-    ) = dd_io.readbidstsv(inputname, colspec=colspec, debug=debug)
+    ) = readbidstsv(inputname, colspec=colspec, debug=debug)
     if len(incolumns) > 1:
         raise ValueError("Multiple columns in input file")
     intimecourse = indata[0, :]
@@ -269,7 +267,7 @@ def doresample(
         frontpad = rawxpad + orig_x[0] - padlen * tstep
         backpad = rawxpad + orig_x[-1] + tstep
         pad_x = np.concatenate((frontpad, orig_x, backpad))
-        pad_y = dd_filt.padvec(orig_y, padlen=padlen, padtype=padtype)
+        pad_y = padvec(orig_y, padlen=padlen, padtype=padtype)
     else:
         pad_x = orig_x
         pad_y = orig_y
@@ -291,23 +289,23 @@ def doresample(
     final_freq = len(new_x) / (new_x[-1] - new_x[0])
     if antialias and (init_freq > final_freq):
         aafilterfreq = final_freq / 2.0
-        aafilter = dd_filt.NoncausalFilter(filtertype="arb", transferfunc="trapezoidal")
+        aafilter = NoncausalFilter(filtertype="arb", transferfunc="trapezoidal")
         aafilter.setfreqs(0.0, 0.0, 0.95 * aafilterfreq, aafilterfreq)
         pad_y = aafilter.apply(init_freq, pad_y)
 
     if method == "cubic":
         cj = signal.cspline1d(pad_y)
-        # return dd_filt.unpadvec(
+        # return unpadvec(
         #   np.float64(signal.cspline1d_eval(cj, new_x, dx=(orig_x[1] - orig_x[0]), x0=orig_x[0])), padlen=padlen)
         return signal.cspline1d_eval(cj, new_x, dx=(orig_x[1] - orig_x[0]), x0=orig_x[0])
     elif method == "quadratic":
         qj = signal.qspline1d(pad_y)
-        # return dd_filt.unpadvec(
+        # return unpadvec(
         #    np.float64(signal.qspline1d_eval(qj, new_x, dx=(orig_x[1] - orig_x[0]), x0=orig_x[0])), padlen=padlen)
         return signal.qspline1d_eval(qj, new_x, dx=(orig_x[1] - orig_x[0]), x0=orig_x[0])
     elif method == "univariate":
         interpolator = sp.interpolate.UnivariateSpline(pad_x, pad_y, k=3, s=0)  # s=0 interpolates
-        # return dd_filt.unpadvec(np.float64(interpolator(new_x)), padlen=padlen)
+        # return unpadvec(np.float64(interpolator(new_x)), padlen=padlen)
         return np.float64(interpolator(new_x))
     else:
         print("invalid interpolation method")
@@ -430,7 +428,7 @@ def upsample(
     upsampled_x = np.arange(0.0, ts_higher * numresamppts, ts_higher)
     upsampled_y = doresample(orig_x, inputdata, upsampled_x, method=method)
     if dofilt:
-        initfilter = dd_filt.NoncausalFilter(
+        initfilter = NoncausalFilter(
             filtertype="arb", transferfunc="trapezoidal", debug=debug
         )
         stopfreq = np.min([1.1 * Fs_init / 2.0, Fs_higher / 2.0])
@@ -492,7 +490,7 @@ def dotwostepresample(
     if antialias:
         starttime = time.time()
         aafilterfreq = np.min([final_freq, init_freq]) / 2.0
-        aafilter = dd_filt.NoncausalFilter(
+        aafilter = NoncausalFilter(
             filtertype="arb", transferfunc="trapezoidal", debug=debug
         )
         aafilter.setfreqs(0.0, 0.0, 0.95 * aafilterfreq, aafilterfreq)

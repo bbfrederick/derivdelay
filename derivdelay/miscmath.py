@@ -34,8 +34,8 @@ with warnings.catch_warnings():
 from scipy import fftpack
 from statsmodels.robust import mad
 
-import derivdelay.filter as dd_filt
-import derivdelay.fit as dd_fit
+from derivdelay.filter import padvec, unpadvec, NoncausalFilter, hamming, windowfunction
+from derivdelay.fit import detrend, trendgen
 
 if pyfftwpresent:
     fftpack = pyfftw.interfaces.scipy_fftpack
@@ -113,7 +113,7 @@ def polarfft(invec, samplerate):
         thevec = invec[:-1]
     else:
         thevec = invec
-    spec = fftpack.fft(dd_filt.hamming(np.shape(thevec)[0]) * thevec)[0 : np.shape(thevec)[0] // 2]
+    spec = fftpack.fft(hamming(np.shape(thevec)[0]) * thevec)[0 : np.shape(thevec)[0] // 2]
     magspec = abs(spec)
     phspec = phase(spec)
     maxfreq = samplerate / 2.0
@@ -411,14 +411,14 @@ def corrnormalize(thedata, detrendorder=1, windowfunc="hamming"):
     """
     # detrend first
     if detrendorder > 0:
-        intervec = stdnormalize(dd_fit.detrend(thedata, order=detrendorder, demean=True))
+        intervec = stdnormalize(detrend(thedata, order=detrendorder, demean=True))
     else:
         intervec = stdnormalize(thedata)
 
     # then window
     if windowfunc != "None":
         return stdnormalize(
-            dd_filt.windowfunction(np.shape(thedata)[0], type=windowfunc) * intervec
+            windowfunction(np.shape(thedata)[0], type=windowfunc) * intervec
         ) / np.sqrt(np.shape(thedata)[0])
     else:
         return stdnormalize(intervec) / np.sqrt(np.shape(thedata)[0])
@@ -438,11 +438,11 @@ def noiseamp(vector, Fs, windowsize=40.0):
     """
     cutoff = 1.0 / windowsize
     padlen = int(len(vector) // 2)
-    theenvbpf = dd_filt.NoncausalFilter(filtertype="arb")
+    theenvbpf = NoncausalFilter(filtertype="arb")
     theenvbpf.setfreqs(0.0, 0.0, cutoff, 1.1 * cutoff)
-    dd_filt.unpadvec(theenvbpf.apply(Fs, dd_filt.padvec(np.square(vector), padlen)), padlen)
-    filtsq = dd_filt.unpadvec(
-        theenvbpf.apply(Fs, dd_filt.padvec(np.square(vector), padlen)), padlen
+    unpadvec(theenvbpf.apply(Fs, padvec(np.square(vector), padlen)), padlen)
+    filtsq = unpadvec(
+        theenvbpf.apply(Fs, padvec(np.square(vector), padlen)), padlen
     )
     filtsq = np.where(filtsq >= 0.0, filtsq, 0.0)
     filtrms = np.sqrt(filtsq)
@@ -451,7 +451,7 @@ def noiseamp(vector, Fs, windowsize=40.0):
         thecoffs = Polynomial.fit(thetimepoints, filtrms, 1).convert().coef[::-1]
     except np.lib.RankWarning:
         thecoffs = [0.0, 0.0]
-    thefittc = dd_fit.trendgen(thetimepoints, thecoffs, True)
+    thefittc = trendgen(thetimepoints, thecoffs, True)
     startamp = thefittc[0]
     endamp = thefittc[-1]
     if startamp > 0.0:
@@ -497,9 +497,9 @@ def envdetect(Fs, inputdata, cutoff=0.25, padlen=10):
     """
     demeaned = inputdata - np.mean(inputdata)
     sigabs = abs(demeaned)
-    theenvbpf = dd_filt.NoncausalFilter(filtertype="arb")
+    theenvbpf = NoncausalFilter(filtertype="arb")
     theenvbpf.setfreqs(0.0, 0.0, cutoff, 1.1 * cutoff)
-    return dd_filt.unpadvec(theenvbpf.apply(Fs, dd_filt.padvec(sigabs, padlen)), padlen)
+    return unpadvec(theenvbpf.apply(Fs, padvec(sigabs, padlen)), padlen)
 
 
 def phasemod(phase, centric=True):
@@ -541,7 +541,7 @@ def trendfilt(inputdata, order=3, ndevs=3.0, debug=False):
         thecoffs = Polynomial.fit(thetimepoints, inputdata, order).convert().coef[::-1]
     except np.lib.RankWarning:
         thecoffs = [0.0, 0.0]
-    thefittc = dd_fit.trendgen(thetimepoints, thecoffs, True)
+    thefittc = trendgen(thetimepoints, thecoffs, True)
     detrended = inputdata - thefittc
     if debug:
         plt.figure()

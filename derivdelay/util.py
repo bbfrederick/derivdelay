@@ -33,7 +33,7 @@ import numpy as np
 import pandas as pd
 
 import derivdelay._version as dd_versioneer
-import derivdelay.io as dd_io
+from derivdelay.io import writevec
 
 LGR = logging.getLogger(__name__)
 TimingLGR = logging.getLogger("TIMING")
@@ -325,7 +325,7 @@ def savecommandline(theargs, thename):
     -------
 
     """
-    dd_io.writevec([" ".join(theargs)], thename + "_commandline.txt")
+    writevec([" ".join(theargs)], thename + "_commandline.txt")
 
 
 def startendcheck(timepoints, startpoint, endpoint):
@@ -654,7 +654,7 @@ def proctiminginfo(thetimings, outputfile="", extraheader=None):
         theinfolist.append(outstring)
         lasteventtime = float(theevent[1])
     if outputfile != "":
-        dd_io.writevec(theinfolist, outputfile)
+        writevec(theinfolist, outputfile)
 
 
 # timecourse functions
