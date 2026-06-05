@@ -164,7 +164,7 @@ protobuf==5.29.6
     # via
     #   tensorboard
     #   tensorflow
-pyarrow==17.0.0
+pyarrow==23.0.1
     # via rapidtide (../pyproject.toml)
 pybtex==0.24.0
     # via
