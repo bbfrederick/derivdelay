@@ -73,7 +73,7 @@ libclang==18.1.1
     # via tensorflow
 lxml==6.1.0
     # via nilearn
-markdown==3.7
+markdown==3.8.1
     # via tensorboard
 markdown-it-py==3.0.0
     # via
@@ -172,7 +172,7 @@ pybtex==0.24.0
     #   sphinxcontrib-bibtex
 pybtex-docutils==1.0.3
     # via sphinxcontrib-bibtex
-pygments==2.18.0
+pygments==2.20.0
     # via
     #   rich
     #   sphinx
@@ -295,7 +295,7 @@ typing-extensions==4.12.2
     #   tensorflow
 tzdata==2024.2
     # via pandas
-urllib3==2.7.0
+urllib3==2.8.0
     # via requests
 versioneer==0.29
     # via rapidtide (../pyproject.toml)
