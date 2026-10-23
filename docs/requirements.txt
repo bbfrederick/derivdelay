@@ -154,7 +154,7 @@ pandas==2.2.3
     #   statsmodels
 patsy==0.5.6
     # via statsmodels
-pillow==12.3.0
+pillow==13.0.0
     # via
     #   imageio
     #   matplotlib
@@ -299,7 +299,7 @@ urllib3==2.8.0
     # via requests
 versioneer==0.29
     # via rapidtide (../pyproject.toml)
-werkzeug==3.1.6
+werkzeug==3.1.9
     # via tensorboard
 wheel==0.46.2
     # via astunparse
